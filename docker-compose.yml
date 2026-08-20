@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  # The Speed Layer: Vitals Data Producer
+  vitals-producer:
+    build:
+      context: .
+      dockerfile: backend.Dockerfile
+    container_name: bde-vitals-producer
+    command: ["python", "../backend/streaming/vitals_producer.py"]
+    volumes:
+      - data-volume:/app/backend/data
+
+  # The Serving Layer: FastAPI Backend
+  api:
+    build:
+      context: .
+      dockerfile: backend.Dockerfile
+    container_name: bde-fastapi
+    ports:
+      - "8000:8000"
+    env_file:
+      - api/.env
+    volumes:
+      - data-volume:/app/backend/data
+      - mock-data-volume:/app/api/mock_data
+    depends_on:
+      - vitals-producer
+
+  # The Presentation Layer: React/Nginx Frontend
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend.Dockerfile
+    container_name: bde-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+
+volumes:
+  data-volume:
+  mock-data-volume:

@@ -1,3 +1,13 @@
 fastapi
 uvicorn
+pyspark
+scikit-learn
 pandas
+joblib
+aiofiles
+python-multipart
+websockets
+openai
+python-dotenv
+httpx
+pytest
