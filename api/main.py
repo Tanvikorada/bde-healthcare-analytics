@@ -8,10 +8,25 @@ import random
 import asyncio
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
+import joblib
+import pandas as pd
+import aiofiles
 
 load_dotenv()
 
 app = FastAPI(title="Healthcare Data Analytics API")
+
+# Load ML Models if they exist
+ML_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../backend/ml"))
+try:
+    rf_model = joblib.load(os.path.join(ML_DIR, "rf_model.pkl"))
+    le_age = joblib.load(os.path.join(ML_DIR, "le_age.pkl"))
+    le_disease = joblib.load(os.path.join(ML_DIR, "le_disease.pkl"))
+    le_gender = joblib.load(os.path.join(ML_DIR, "le_gender.pkl"))
+    print("Real ML Models loaded successfully.")
+except Exception as e:
+    rf_model = None
+    print(f"Warning: ML Models not found. Ensure train_model.py was run. Error: {e}")
 
 # Initialize xAI (Grok) client
 client = AsyncOpenAI(
@@ -142,49 +157,73 @@ class PatientData(BaseModel):
 
 @app.post("/api/predict")
 def predict_readmission(data: PatientData):
-    # This is a mock Spark MLlib inference endpoint
-    # In a production environment, this would load the random_forest_model.model
-    # and call model.transform(data)
+    if not rf_model:
+        return {"prediction": "Error", "probability": "0%", "factors": ["Model not trained"]}
     
-    # We will simulate the Random Forest logic
-    risk_score = 0
-    if data.age_band in ['61-70', '71-80', '81+']:
-        risk_score += 40
-    if data.disease in ['Heart Disease', 'Diabetes']:
-        risk_score += 30
-    if data.treatment_cost > 10000:
-        risk_score += 20
+    try:
+        # Create DataFrame for single inference
+        df = pd.DataFrame([{
+            'age_band': data.age_band,
+            'disease': data.disease,
+            'gender': data.gender,
+            'treatment_cost': data.treatment_cost
+        }])
         
-    base_prob = risk_score + random.randint(-10, 10)
-    final_prob = min(max(base_prob, 5), 95) # Clamp between 5 and 95
-    
-    return {
-        "prediction": "High Risk" if final_prob > 50 else "Low Risk",
-        "probability": f"{final_prob}%",
-        "factors": ["Age bracket", "Historical disease complexity"] if final_prob > 50 else ["Standard profile"]
-    }
+        # Handle unseen labels by falling back to 0 (or a known class) to prevent crash
+        def safe_transform(encoder, val):
+            if val in encoder.classes_:
+                return encoder.transform([val])[0]
+            return 0
+            
+        df['age_encoded'] = safe_transform(le_age, data.age_band)
+        df['disease_encoded'] = safe_transform(le_disease, data.disease)
+        df['gender_encoded'] = safe_transform(le_gender, data.gender)
+        
+        X = df[['age_encoded', 'disease_encoded', 'gender_encoded', 'treatment_cost']]
+        
+        # Predict probability of class 1 (Readmitted = Yes)
+        prob = rf_model.predict_proba(X)[0][1]
+        prob_pct = round(prob * 100, 1)
+        
+        return {
+            "prediction": "High Risk" if prob > 0.4 else "Low Risk",
+            "probability": f"{prob_pct}%",
+            "factors": ["Scikit-Learn Inference", "Real Model"]
+        }
+    except Exception as e:
+        return {"prediction": "Error", "probability": "0%", "factors": [str(e)]}
 
 # --- LAMBDA ARCHITECTURE: SPEED LAYER (STREAMING) ---
 @app.websocket("/api/stream/vitals")
 async def stream_vitals(websocket: WebSocket):
     await websocket.accept()
-    print("Client connected to live ICU stream")
+    print("Client connected to real log-tailing stream")
+    log_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "../backend/data/vitals.log"))
+    
+    if not os.path.exists(log_file):
+        os.makedirs(os.path.dirname(log_file), exist_ok=True)
+        open(log_file, 'a').close()
+
     try:
-        while True:
-            # Simulate real-time streaming data from Kafka/Spark Streaming
-            vital_data = {
-                "timestamp": __import__('datetime').datetime.now().strftime("%H:%M:%S"),
-                "heart_rate": random.randint(60, 140),
-                "blood_pressure_systolic": random.randint(90, 180),
-                "oxygen_level": random.randint(85, 100),
-                "anomaly_detected": False
-            }
-            # Simple anomaly logic
-            if vital_data["heart_rate"] > 120 or vital_data["oxygen_level"] < 90:
-                vital_data["anomaly_detected"] = True
+        async with aiofiles.open(log_file, mode='r') as f:
+            # Seek to end to tail new lines only
+            await f.seek(0, 2)
+            while True:
+                line = await f.readline()
+                if not line:
+                    await asyncio.sleep(0.5)
+                    continue
                 
-            await websocket.send_json(vital_data)
-            await asyncio.sleep(1.0) # Stream every second
+                try:
+                    vital_data = json.loads(line)
+                    # Simple anomaly logic
+                    vital_data["anomaly_detected"] = False
+                    if vital_data["heart_rate"] > 120 or vital_data["oxygen_level"] < 90:
+                        vital_data["anomaly_detected"] = True
+                        
+                    await websocket.send_json(vital_data)
+                except json.JSONDecodeError:
+                    pass
     except Exception as e:
         print(f"Streaming disconnected: {e}")
 
