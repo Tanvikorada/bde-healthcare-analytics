@@ -1,4 +1,6 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+import subprocess
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import os
@@ -17,16 +19,48 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+MOCK_DIR = "./mock_data"
+
 # Helpers to load real Hadoop output if available, else mock
 def load_json_or_mock(filename, mock_data):
-    path = f"./mock_data/{filename}"
-    if os.path.exists(path):
+    file_path = os.path.join(MOCK_DIR, filename)
+    if os.path.exists(file_path):
         try:
-            with open(path, "r") as f:
+            with open(file_path, "r") as f:
                 return json.load(f)
         except Exception:
             return mock_data
     return mock_data
+
+@app.post("/api/upload")
+async def upload_dataset(file: UploadFile = File(...)):
+    if not file.filename.endswith('.csv'):
+        raise HTTPException(status_code=400, detail="Only CSV files are allowed")
+        
+    # Save the file temporarily
+    upload_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../backend/data/dataset"))
+    os.makedirs(upload_dir, exist_ok=True)
+    file_path = os.path.join(upload_dir, "custom_upload.csv")
+    
+    with open(file_path, "wb") as buffer:
+        content = await file.read()
+        buffer.write(content)
+        
+    # Trigger the PySpark processing script
+    spark_script = os.path.abspath(os.path.join(os.path.dirname(__file__), "../backend/spark/process_upload.py"))
+    
+    try:
+        result = subprocess.run(
+            ["python", spark_script, file_path], 
+            capture_output=True, text=True, check=True
+        )
+    except subprocess.CalledProcessError as e:
+        if e.returncode == 2:
+            raise HTTPException(status_code=400, detail="Data Quality Check Failed. Missing required columns.")
+        else:
+            raise HTTPException(status_code=500, detail=f"Spark Processing Failed: {e.stderr}")
+            
+    return {"message": "File processed successfully", "logs": result.stdout}
 
 @app.get("/api/kpis")
 def get_kpis():
@@ -72,11 +106,10 @@ def get_readmission_rates():
 
 @app.get("/api/mapreduce-vs-spark")
 def get_performance_comparison():
-    mock = {
-        "job": "ReadmissionRates",
-        "spark_time_seconds": 12.5,
-        "mapreduce_time_seconds": 52.3
-    }
+    mock = [
+        {"framework": "MapReduce (Disk I/O)", "time": 52.3},
+        {"framework": "PySpark (In-Memory)", "time": 12.5}
+    ]
     return load_json_or_mock("performance.json", mock)
 
 @app.get("/api/surprising-insight")

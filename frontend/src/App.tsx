@@ -3,7 +3,7 @@ import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, Cell 
 } from 'recharts';
 import { 
-  Moon, Sun, Activity, Users, Map, AlertTriangle, Database, Cpu, Clock, Zap, Target
+  Moon, Sun, Activity, Users, Map, AlertTriangle, Database, Cpu, Clock, Zap, Target, Upload, FileUp, CheckCircle2, XCircle
 } from 'lucide-react';
 import clsx from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -97,6 +97,25 @@ function App() {
   const [prediction, setPrediction] = useState<any>(null);
   const [predicting, setPredicting] = useState(false);
 
+  // Upload State
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [uploadMessage, setUploadMessage] = useState('');
+
+  const loadData = async () => {
+    setLoading(true);
+    const [kpis, trends, regions, readmissions, perf, insight] = await Promise.all([
+      fetchApi('kpis'),
+      fetchApi('disease-trends'),
+      fetchApi('regional-burden'),
+      fetchApi('readmission-rates'),
+      fetchApi('mapreduce-vs-spark'),
+      fetchApi('surprising-insight'),
+    ]);
+    setData({ kpis, trends, regions, readmissions, perf, insight });
+    setLoading(false);
+  };
+
   useEffect(() => {
     if (darkMode) {
       document.documentElement.classList.add('dark');
@@ -106,20 +125,41 @@ function App() {
   }, [darkMode]);
 
   useEffect(() => {
-    const loadData = async () => {
-      const [kpis, trends, regions, readmissions, perf, insight] = await Promise.all([
-        fetchApi('kpis'),
-        fetchApi('disease-trends'),
-        fetchApi('regional-burden'),
-        fetchApi('readmission-rates'),
-        fetchApi('mapreduce-vs-spark'),
-        fetchApi('surprising-insight'),
-      ]);
-      setData({ kpis, trends, regions, readmissions, perf, insight });
-      setLoading(false);
-    };
     loadData();
   }, []);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setIsUploading(true);
+    setUploadStatus('idle');
+    setUploadMessage('Spark Cluster Processing Data...');
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+      const res = await fetch('http://localhost:8000/api/upload', {
+        method: 'POST',
+        body: formData
+      });
+      const result = await res.json();
+      
+      if (res.ok) {
+        setUploadStatus('success');
+        setUploadMessage('Processing Complete! Dashboard Updated.');
+        loadData(); // Re-fetch the newly generated data
+      } else {
+        setUploadStatus('error');
+        setUploadMessage(result.detail || 'Processing failed');
+      }
+    } catch (err) {
+      setUploadStatus('error');
+      setUploadMessage('Network error communicating with Spark backend.');
+    }
+    setIsUploading(false);
+  };
 
   const handlePredict = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -172,6 +212,51 @@ function App() {
           <p className="text-xl text-muted-foreground max-w-2xl leading-relaxed">
             A full-stack architecture demonstrating Apache Hadoop, Hive, Spark MLlib, and Airflow orchestration to analyze and predict hospital readmissions.
           </p>
+        </section>
+
+        {/* Dynamic Dataset Upload */}
+        <section className="flex flex-col items-center mb-8 w-full max-w-xl mx-auto">
+          <Card className="w-full relative overflow-hidden border-dashed border-2">
+            <div className="flex flex-col items-center justify-center p-8 text-center">
+              <div className="p-4 rounded-full bg-primary/10 text-primary mb-4">
+                {isUploading ? <Activity className="h-8 w-8 animate-pulse" /> : <FileUp className="h-8 w-8" />}
+              </div>
+              <h3 className="text-xl font-bold mb-2">Upload Custom Dataset</h3>
+              <p className="text-muted-foreground text-sm mb-6">
+                Drag & drop a CSV file to instantly trigger a PySpark job. The dashboard will automatically update when the Spark cluster finishes processing.
+              </p>
+              
+              <div className="relative">
+                <input 
+                  type="file" 
+                  accept=".csv"
+                  onChange={handleFileUpload}
+                  disabled={isUploading}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+                />
+                <button 
+                  disabled={isUploading}
+                  className="bg-primary text-primary-foreground font-semibold px-6 py-2 rounded-md flex items-center gap-2 hover:bg-primary/90 transition-colors disabled:opacity-50"
+                >
+                  <Upload className="h-4 w-4" />
+                  {isUploading ? "Uploading & Processing..." : "Select CSV File"}
+                </button>
+              </div>
+
+              {uploadMessage && (
+                <div className={cn(
+                  "mt-6 flex items-center gap-2 text-sm font-medium animate-in fade-in duration-300",
+                  uploadStatus === 'success' ? "text-green-500" : 
+                  uploadStatus === 'error' ? "text-red-500" : "text-blue-500"
+                )}>
+                  {uploadStatus === 'success' && <CheckCircle2 className="h-4 w-4" />}
+                  {uploadStatus === 'error' && <XCircle className="h-4 w-4" />}
+                  {uploadStatus === 'idle' && <Activity className="h-4 w-4 animate-spin" />}
+                  {uploadMessage}
+                </div>
+              )}
+            </div>
+          </Card>
         </section>
 
         <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
