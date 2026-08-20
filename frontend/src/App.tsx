@@ -3,7 +3,7 @@ import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, Cell 
 } from 'recharts';
 import { 
-  Moon, Sun, Activity, Users, Map, AlertTriangle, Database, Server, Cpu, Clock, Zap, Target
+  Moon, Sun, Activity, Users, Map, AlertTriangle, Database, Cpu, Clock, Zap, Target
 } from 'lucide-react';
 import clsx from 'clsx';
 import { twMerge } from 'tailwind-merge';
