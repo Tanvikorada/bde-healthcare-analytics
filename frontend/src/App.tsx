@@ -12,10 +12,14 @@ export function cn(...inputs: (string | undefined | null | false)[]) {
   return twMerge(clsx(inputs));
 }
 
+// --- Environment Config ---
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const WS_BASE = API_BASE.replace(/^http/, 'ws');
+
 // --- API Fetcher ---
 const fetchApi = async (endpoint: string) => {
   try {
-    const response = await fetch(`http://localhost:8000/api/${endpoint}`);
+    const response = await fetch(`${API_BASE}/api/${endpoint}`);
     if (!response.ok) throw new Error('API down');
     return await response.json();
   } catch (error) {
@@ -94,7 +98,7 @@ const LiveStreaming = () => {
   const [status, setStatus] = useState('Connecting...');
 
   useEffect(() => {
-    const ws = new WebSocket('ws://localhost:8000/api/stream/vitals');
+    const ws = new WebSocket(`${WS_BASE}/api/stream/vitals`);
     
     ws.onopen = () => setStatus('Connected to Kafka/Spark Streaming Speed Layer');
     ws.onmessage = (event) => {
@@ -165,7 +169,7 @@ const GrokChatbot = () => {
     setLoading(true);
 
     try {
-      const res = await fetch('http://localhost:8000/api/chat', {
+      const res = await fetch(`${API_BASE}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: userMsg })
@@ -277,7 +281,7 @@ function App() {
     formData.append('file', file);
     
     try {
-      const res = await fetch('http://localhost:8000/api/upload', {
+      const res = await fetch(`${API_BASE}/api/upload`, {
         method: 'POST',
         body: formData
       });
@@ -302,7 +306,7 @@ function App() {
     e.preventDefault();
     setPredicting(true);
     try {
-      const res = await fetch('http://localhost:8000/api/predict', {
+      const res = await fetch(`${API_BASE}/api/predict`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(mlForm)
