@@ -1,14 +1,23 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 import subprocess
-from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import os
 import json
 import random
-import json
+import asyncio
+from dotenv import load_dotenv
+from openai import AsyncOpenAI
+
+load_dotenv()
 
 app = FastAPI(title="Healthcare Data Analytics API")
+
+# Initialize xAI (Grok) client
+client = AsyncOpenAI(
+    api_key=os.getenv("GROK_API_KEY", "dummy_key_if_missing"),
+    base_url="https://api.x.ai/v1",
+)
 
 # Allow frontend to access API
 app.add_middleware(
@@ -132,23 +141,85 @@ class PatientData(BaseModel):
     gender: str
 
 @app.post("/api/predict")
-def predict_readmission(patient: PatientData):
-    # In a real cloud environment, this would call `model.transform(df)` using the loaded Spark ML model.
-    # We simulate the prediction logic using the trained metadata for the demo.
+def predict_readmission(data: PatientData):
+    # This is a mock Spark MLlib inference endpoint
+    # In a production environment, this would load the random_forest_model.model
+    # and call model.transform(data)
     
-    base_risk = 0.15
-    if patient.age_band in ["71-80", "81-90", "90+"]:
-        base_risk += 0.25
-    if patient.disease in ["Heart Disease", "Sepsis"]:
-        base_risk += 0.18
-    if patient.treatment_cost > 10000:
-        base_risk += 0.10
+    # We will simulate the Random Forest logic
+    risk_score = 0
+    if data.age_band in ['61-70', '71-80', '81+']:
+        risk_score += 40
+    if data.disease in ['Heart Disease', 'Diabetes']:
+        risk_score += 30
+    if data.treatment_cost > 10000:
+        risk_score += 20
         
-    # Add some ML "fuzziness" to simulate a real Random Forest probability output
-    final_risk = min(0.95, base_risk + random.uniform(-0.05, 0.05))
+    base_prob = risk_score + random.randint(-10, 10)
+    final_prob = min(max(base_prob, 5), 95) # Clamp between 5 and 95
     
     return {
-        "model_used": "PySpark RandomForestClassifier",
-        "readmission_probability": round(final_risk, 2),
-        "risk_category": "High" if final_risk > 0.40 else "Low"
+        "prediction": "High Risk" if final_prob > 50 else "Low Risk",
+        "probability": f"{final_prob}%",
+        "factors": ["Age bracket", "Historical disease complexity"] if final_prob > 50 else ["Standard profile"]
     }
+
+# --- LAMBDA ARCHITECTURE: SPEED LAYER (STREAMING) ---
+@app.websocket("/api/stream/vitals")
+async def stream_vitals(websocket: WebSocket):
+    await websocket.accept()
+    print("Client connected to live ICU stream")
+    try:
+        while True:
+            # Simulate real-time streaming data from Kafka/Spark Streaming
+            vital_data = {
+                "timestamp": __import__('datetime').datetime.now().strftime("%H:%M:%S"),
+                "heart_rate": random.randint(60, 140),
+                "blood_pressure_systolic": random.randint(90, 180),
+                "oxygen_level": random.randint(85, 100),
+                "anomaly_detected": False
+            }
+            # Simple anomaly logic
+            if vital_data["heart_rate"] > 120 or vital_data["oxygen_level"] < 90:
+                vital_data["anomaly_detected"] = True
+                
+            await websocket.send_json(vital_data)
+            await asyncio.sleep(1.0) # Stream every second
+    except Exception as e:
+        print(f"Streaming disconnected: {e}")
+
+# --- GEN AI LAYER: GROK CHATBOT ---
+class ChatRequest(BaseModel):
+    query: str
+
+@app.post("/api/chat")
+async def chat_with_data(req: ChatRequest):
+    api_key = os.getenv("GROK_API_KEY")
+    if not api_key or api_key == "your_api_key_here":
+        return {"reply": "Please set your GROK_API_KEY in the backend .env file to talk to me!"}
+
+    # Gather context from the Hadoop/Spark output
+    kpis = load_json_or_mock("kpis.json", {})
+    trends = load_json_or_mock("disease_trends.json", {})
+    
+    system_prompt = f"""
+    You are a highly intelligent Data Engineering Assistant named 'HealthHadoop AI'. 
+    You are answering questions about a hospital's big data analytics dashboard.
+    Here is the latest data computed by Apache Spark:
+    KPIs: {json.dumps(kpis)}
+    Trends: {json.dumps(trends)[:200]}... (truncated)
+    
+    Answer the user's query concisely and professionally, referencing the data.
+    """
+    
+    try:
+        completion = await client.chat.completions.create(
+            model="grok-beta",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": req.query}
+            ],
+        )
+        return {"reply": completion.choices[0].message.content}
+    except Exception as e:
+        return {"reply": f"Grok API Error: {str(e)}"}

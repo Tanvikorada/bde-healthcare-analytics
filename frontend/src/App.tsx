@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, Cell 
 } from 'recharts';
 import { 
-  Moon, Sun, Activity, Users, Map, AlertTriangle, Database, Cpu, Clock, Zap, Target, Upload, FileUp, CheckCircle2, XCircle
+  Moon, Sun, Activity, Users, Map, AlertTriangle, Database, Cpu, Clock, Zap, Target, Upload, FileUp, CheckCircle2, XCircle, MessageSquare, Radio, Send
 } from 'lucide-react';
 import clsx from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -87,8 +87,145 @@ const Skeleton = ({ className }: { className?: string }) => (
   <div className={cn("animate-pulse bg-muted rounded-md", className)} />
 );
 
+// --- Subcomponents ---
+
+const LiveStreaming = () => {
+  const [streamData, setStreamData] = useState<any[]>([]);
+  const [status, setStatus] = useState('Connecting...');
+
+  useEffect(() => {
+    const ws = new WebSocket('ws://localhost:8000/api/stream/vitals');
+    
+    ws.onopen = () => setStatus('Connected to Kafka/Spark Streaming Speed Layer');
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      setStreamData(prev => [...prev.slice(-19), data]);
+    };
+    ws.onerror = () => setStatus('WebSocket Error (Backend Offline)');
+    ws.onclose = () => setStatus('Disconnected');
+
+    return () => ws.close();
+  }, []);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between border-b border-border pb-2">
+        <div className="flex items-center gap-2">
+          <Radio className="h-6 w-6 text-red-500 animate-pulse" />
+          <h2 className="text-2xl font-semibold tracking-tight">Live ICU Vitals (Speed Layer)</h2>
+        </div>
+        <div className={cn("text-sm font-medium px-3 py-1 rounded-full", status.includes('Connected') ? "bg-green-500/10 text-green-500" : "bg-red-500/10 text-red-500")}>
+          {status}
+        </div>
+      </div>
+      
+      <Card className="flex flex-col h-[500px]">
+        <h3 className="text-lg font-semibold mb-2">Real-Time Patient Vitals Stream</h3>
+        <p className="text-sm text-muted-foreground mb-6">Simulating a Kafka stream ingested by Spark Streaming for real-time anomaly detection.</p>
+        <div className="flex-1 w-full relative">
+          {streamData.length === 0 ? (
+            <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">Waiting for data stream...</div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={streamData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="opacity-10" />
+                <XAxis dataKey="timestamp" stroke="currentColor" className="opacity-50 text-xs" />
+                <YAxis stroke="currentColor" className="opacity-50 text-xs" domain={['dataMin - 10', 'dataMax + 10']} />
+                <RechartsTooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }} />
+                <Legend />
+                <Line type="monotone" dataKey="heart_rate" name="Heart Rate (bpm)" stroke="#ef4444" strokeWidth={2} isAnimationActive={false} dot={false} />
+                <Line type="monotone" dataKey="blood_pressure_systolic" name="BP Systolic (mmHg)" stroke="#3b82f6" strokeWidth={2} isAnimationActive={false} dot={false} />
+                <Line type="monotone" dataKey="oxygen_level" name="SpO2 (%)" stroke="#10b981" strokeWidth={2} isAnimationActive={false} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+      </Card>
+    </div>
+  );
+};
+
+const GrokChatbot = () => {
+  const [messages, setMessages] = useState([{ role: 'assistant', content: "Hello! I am HealthHadoop AI, powered by xAI Grok. I have full context of the Apache Spark analysis on this dashboard. What would you like to know?" }]);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [messages]);
+
+  const handleSend = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim()) return;
+    
+    const userMsg = input;
+    setMessages(prev => [...prev, { role: 'user', content: userMsg }]);
+    setInput('');
+    setLoading(true);
+
+    try {
+      const res = await fetch('http://localhost:8000/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: userMsg })
+      });
+      const data = await res.json();
+      setMessages(prev => [...prev, { role: 'assistant', content: data.reply || 'Sorry, I could not process that.' }]);
+    } catch (err) {
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Network Error connecting to Grok API.' }]);
+    }
+    setLoading(false);
+  };
+
+  return (
+    <Card className="flex flex-col h-[600px] p-0 overflow-hidden">
+      <div className="bg-muted/50 p-4 border-b border-border flex items-center gap-2">
+        <MessageSquare className="h-5 w-5 text-primary" />
+        <h3 className="font-semibold tracking-tight">Grok Data Assistant</h3>
+      </div>
+      <div className="flex-1 p-4 overflow-y-auto space-y-4" ref={scrollRef}>
+        {messages.map((msg, i) => (
+          <div key={i} className={cn("flex w-full", msg.role === 'user' ? "justify-end" : "justify-start")}>
+            <div className={cn(
+              "max-w-[80%] rounded-xl px-4 py-2 text-sm",
+              msg.role === 'user' ? "bg-primary text-primary-foreground" : "bg-muted border border-border"
+            )}>
+              {msg.content}
+            </div>
+          </div>
+        ))}
+        {loading && (
+          <div className="flex w-full justify-start">
+            <div className="bg-muted border border-border rounded-xl px-4 py-2 text-sm animate-pulse flex items-center gap-2">
+              <div className="h-2 w-2 bg-primary rounded-full animate-bounce"></div>
+              <div className="h-2 w-2 bg-primary rounded-full animate-bounce delay-75"></div>
+              <div className="h-2 w-2 bg-primary rounded-full animate-bounce delay-150"></div>
+            </div>
+          </div>
+        )}
+      </div>
+      <form onSubmit={handleSend} className="p-4 border-t border-border flex gap-2 bg-background">
+        <input 
+          type="text" 
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          placeholder="Ask about readmission trends..."
+          className="flex-1 bg-muted border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+        />
+        <button type="submit" disabled={loading} className="bg-primary text-primary-foreground p-2 rounded-md hover:bg-primary/90 disabled:opacity-50">
+          <Send className="h-4 w-4" />
+        </button>
+      </form>
+    </Card>
+  );
+};
+
+// --- Main App ---
+
 function App() {
   const [darkMode, setDarkMode] = useState(true);
+  const [activeTab, setActiveTab] = useState<'batch' | 'streaming' | 'ai'>('batch');
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any>({});
   
@@ -180,8 +317,9 @@ function App() {
       const risk = Math.min(0.95, baseRisk + agePenalty);
       setPrediction({
         model_used: "PySpark RandomForestClassifier (Fallback)",
-        readmission_probability: risk,
-        risk_category: risk > 0.4 ? "High" : "Low"
+        probability: `${(risk*100).toFixed(1)}%`,
+        prediction: risk > 0.4 ? "High Risk" : "Low Risk",
+        factors: ["Mock Fallback Mode"]
       });
     }
     setPredicting(false);
@@ -195,6 +333,29 @@ function App() {
             <Activity className="h-6 w-6 text-primary" />
             <span className="font-bold text-lg tracking-tight">HealthHadoop<span className="text-primary">.ai</span></span>
           </div>
+          
+          {/* Navigation Tabs */}
+          <div className="hidden md:flex bg-muted p-1 rounded-lg">
+            <button 
+              onClick={() => setActiveTab('batch')} 
+              className={cn("px-4 py-1.5 text-sm font-medium rounded-md transition-all", activeTab === 'batch' ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}
+            >
+              Batch Analytics
+            </button>
+            <button 
+              onClick={() => setActiveTab('streaming')} 
+              className={cn("px-4 py-1.5 text-sm font-medium rounded-md transition-all", activeTab === 'streaming' ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}
+            >
+              Live Streaming (Speed Layer)
+            </button>
+            <button 
+              onClick={() => setActiveTab('ai')} 
+              className={cn("px-4 py-1.5 text-sm font-medium rounded-md transition-all", activeTab === 'ai' ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}
+            >
+              AI Insights
+            </button>
+          </div>
+
           <button onClick={() => setDarkMode(!darkMode)} className="p-2 rounded-full hover:bg-muted transition-colors">
             {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
           </button>
@@ -204,265 +365,225 @@ function App() {
       <main className="container mx-auto px-4 py-8 space-y-16">
         <section className="py-12 md:py-24 flex flex-col items-center text-center space-y-6">
           <div className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-sm font-medium text-primary mb-4">
-            <Zap className="h-4 w-4 mr-2" /> Major Capstone Project
+            <Zap className="h-4 w-4 mr-2" /> Lambda Architecture Capstone
           </div>
           <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight max-w-4xl">
             Uncovering Healthcare Insights at <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-blue-400">Petabyte Scale</span>
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl leading-relaxed">
-            A full-stack architecture demonstrating Apache Hadoop, Hive, Spark MLlib, and Airflow orchestration to analyze and predict hospital readmissions.
+            A full-stack Lambda Architecture demonstrating Apache Hadoop, Hive, Spark Streaming, and Grok Generative AI to analyze and predict hospital readmissions.
           </p>
         </section>
 
-        {/* Dynamic Dataset Upload */}
-        <section className="flex flex-col items-center mb-8 w-full max-w-xl mx-auto">
-          <Card className="w-full relative overflow-hidden border-dashed border-2">
-            <div className="flex flex-col items-center justify-center p-8 text-center">
-              <div className="p-4 rounded-full bg-primary/10 text-primary mb-4">
-                {isUploading ? <Activity className="h-8 w-8 animate-pulse" /> : <FileUp className="h-8 w-8" />}
-              </div>
-              <h3 className="text-xl font-bold mb-2">Upload Custom Dataset</h3>
-              <p className="text-muted-foreground text-sm mb-6">
-                Drag & drop a CSV file to instantly trigger a PySpark job. The dashboard will automatically update when the Spark cluster finishes processing.
-              </p>
-              
-              <div className="relative">
-                <input 
-                  type="file" 
-                  accept=".csv"
-                  onChange={handleFileUpload}
-                  disabled={isUploading}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
-                />
-                <button 
-                  disabled={isUploading}
-                  className="bg-primary text-primary-foreground font-semibold px-6 py-2 rounded-md flex items-center gap-2 hover:bg-primary/90 transition-colors disabled:opacity-50"
-                >
-                  <Upload className="h-4 w-4" />
-                  {isUploading ? "Uploading & Processing..." : "Select CSV File"}
-                </button>
-              </div>
+        {/* Mobile Tabs */}
+        <div className="flex md:hidden bg-muted p-1 rounded-lg w-full overflow-x-auto mb-8">
+            <button onClick={() => setActiveTab('batch')} className={cn("flex-1 px-4 py-2 text-sm font-medium rounded-md transition-all whitespace-nowrap", activeTab === 'batch' ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}>Batch</button>
+            <button onClick={() => setActiveTab('streaming')} className={cn("flex-1 px-4 py-2 text-sm font-medium rounded-md transition-all whitespace-nowrap", activeTab === 'streaming' ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}>Streaming</button>
+            <button onClick={() => setActiveTab('ai')} className={cn("flex-1 px-4 py-2 text-sm font-medium rounded-md transition-all whitespace-nowrap", activeTab === 'ai' ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}>AI Insights</button>
+        </div>
 
-              {uploadMessage && (
-                <div className={cn(
-                  "mt-6 flex items-center gap-2 text-sm font-medium animate-in fade-in duration-300",
-                  uploadStatus === 'success' ? "text-green-500" : 
-                  uploadStatus === 'error' ? "text-red-500" : "text-blue-500"
-                )}>
-                  {uploadStatus === 'success' && <CheckCircle2 className="h-4 w-4" />}
-                  {uploadStatus === 'error' && <XCircle className="h-4 w-4" />}
-                  {uploadStatus === 'idle' && <Activity className="h-4 w-4 animate-spin" />}
-                  {uploadMessage}
+        {/* --- TAB: BATCH ANALYTICS --- */}
+        {activeTab === 'batch' && (
+          <div className="space-y-16 animate-in fade-in duration-500">
+            {/* Dynamic Dataset Upload */}
+            <section className="flex flex-col items-center w-full max-w-xl mx-auto">
+              <Card className="w-full relative overflow-hidden border-dashed border-2">
+                <div className="flex flex-col items-center justify-center p-8 text-center">
+                  <div className="p-4 rounded-full bg-primary/10 text-primary mb-4">
+                    {isUploading ? <Activity className="h-8 w-8 animate-pulse" /> : <FileUp className="h-8 w-8" />}
+                  </div>
+                  <h3 className="text-xl font-bold mb-2">Upload Custom Dataset</h3>
+                  <p className="text-muted-foreground text-sm mb-6">
+                    Drag & drop a CSV file to instantly trigger a PySpark job in the Batch Layer.
+                  </p>
+                  
+                  <div className="relative">
+                    <input 
+                      type="file" 
+                      accept=".csv"
+                      onChange={handleFileUpload}
+                      disabled={isUploading}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+                    />
+                    <button 
+                      disabled={isUploading}
+                      className="bg-primary text-primary-foreground font-semibold px-6 py-2 rounded-md flex items-center gap-2 hover:bg-primary/90 transition-colors disabled:opacity-50"
+                    >
+                      <Upload className="h-4 w-4" />
+                      {isUploading ? "Uploading & Processing..." : "Select CSV File"}
+                    </button>
+                  </div>
+
+                  {uploadMessage && (
+                    <div className={cn(
+                      "mt-6 flex items-center gap-2 text-sm font-medium animate-in fade-in duration-300",
+                      uploadStatus === 'success' ? "text-green-500" : 
+                      uploadStatus === 'error' ? "text-red-500" : "text-blue-500"
+                    )}>
+                      {uploadStatus === 'success' && <CheckCircle2 className="h-4 w-4" />}
+                      {uploadStatus === 'error' && <XCircle className="h-4 w-4" />}
+                      {uploadStatus === 'idle' && <Activity className="h-4 w-4 animate-spin" />}
+                      {uploadMessage}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          </Card>
-        </section>
+              </Card>
+            </section>
 
-        <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[
-            { label: "Records Processed", icon: Database, value: data.kpis?.total_records_processed },
-            { label: "Regions Analyzed", icon: Map, value: data.kpis?.regions_analyzed },
-            { label: "Top Disease Volume", icon: Users, value: data.kpis?.top_disease },
-            { label: "Avg Readmission Rate", icon: AlertTriangle, value: data.kpis?.avg_readmission_rate, color: "text-red-500" },
-          ].map((kpi, i) => (
-            <Card key={i} className="hover:shadow-md transition-shadow group">
-              <div className="flex items-center justify-between pb-2">
-                <h3 className="text-sm font-medium text-muted-foreground">{kpi.label}</h3>
-                <kpi.icon className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-              </div>
-              {loading ? <Skeleton className="h-8 w-24 mt-2" /> : (
-                <div className={cn("text-3xl font-bold", kpi.color)}>{kpi.value}</div>
-              )}
-            </Card>
-          ))}
-        </section>
+            <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {[
+                { label: "Records Processed", icon: Database, value: data.kpis?.total_records_processed },
+                { label: "Regions Analyzed", icon: Map, value: data.kpis?.regions_analyzed },
+                { label: "Top Disease Volume", icon: Users, value: data.kpis?.top_disease },
+                { label: "Avg Readmission Rate", icon: AlertTriangle, value: data.kpis?.avg_readmission_rate, color: "text-red-500" },
+              ].map((kpi, i) => (
+                <Card key={i} className="hover:shadow-md transition-shadow group">
+                  <div className="flex items-center justify-between pb-2">
+                    <h3 className="text-sm font-medium text-muted-foreground">{kpi.label}</h3>
+                    <kpi.icon className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                  </div>
+                  {loading ? <Skeleton className="h-8 w-24 mt-2" /> : (
+                    <div className={cn("text-3xl font-bold", kpi.color)}>{kpi.value}</div>
+                  )}
+                </Card>
+              ))}
+            </section>
 
-        {/* Predictive AI Section (NEW) */}
-        <section className="space-y-6">
-          <div className="flex items-center gap-2 border-b border-border pb-2">
-            <Target className="h-6 w-6 text-primary" />
-            <h2 className="text-2xl font-semibold tracking-tight">AI Readmission Predictor (Spark MLlib)</h2>
+            <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card className="flex flex-col h-[400px]">
+                <h3 className="text-lg font-semibold mb-4">Year-over-Year Disease Trend</h3>
+                <div className="flex-1 w-full">
+                  {loading ? <Skeleton className="h-full w-full" /> : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={data.trends}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="opacity-10" />
+                        <XAxis dataKey="year" stroke="currentColor" className="opacity-50 text-xs" />
+                        <YAxis stroke="currentColor" className="opacity-50 text-xs" />
+                        <RechartsTooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }} itemStyle={{ color: 'hsl(var(--foreground))' }} />
+                        <Legend />
+                        <Line type="monotone" dataKey="Heart Disease" stroke="#ef4444" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                        <Line type="monotone" dataKey="Diabetes" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4 }} />
+                        <Line type="monotone" dataKey="Pneumonia" stroke="#10b981" strokeWidth={3} dot={{ r: 4 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
+              </Card>
+              <Card className="flex flex-col h-[400px]">
+                <h3 className="text-lg font-semibold mb-4">Regional Disease Burden</h3>
+                <div className="flex-1 w-full">
+                  {loading ? <Skeleton className="h-full w-full" /> : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={data.regions}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="opacity-10" vertical={false} />
+                        <XAxis dataKey="region" stroke="currentColor" className="opacity-50 text-xs" />
+                        <YAxis stroke="currentColor" className="opacity-50 text-xs" />
+                        <RechartsTooltip cursor={{fill: 'currentColor', opacity: 0.05}} contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }} />
+                        <Bar dataKey="cases" radius={[4, 4, 0, 0]}>
+                          {data.regions?.map((_: any, index: number) => (
+                            <Cell key={`cell-${index}`} fill={index % 2 === 0 ? '#3b82f6' : '#60a5fa'} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
+              </Card>
+            </section>
           </div>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <Card className="lg:col-span-1">
-              <form onSubmit={handlePredict} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1 text-muted-foreground">Disease Category</label>
-                  <select 
-                    className="w-full bg-background border border-border rounded-md p-2"
-                    value={mlForm.disease}
-                    onChange={e => setMlForm({...mlForm, disease: e.target.value})}
+        )}
+
+        {/* --- TAB: STREAMING SPEED LAYER --- */}
+        {activeTab === 'streaming' && (
+          <div className="animate-in fade-in duration-500">
+            <LiveStreaming />
+          </div>
+        )}
+
+        {/* --- TAB: AI INSIGHTS & PREDICTION --- */}
+        {activeTab === 'ai' && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in fade-in duration-500">
+            <section className="space-y-6">
+              <div className="flex items-center gap-2 border-b border-border pb-2">
+                <Target className="h-6 w-6 text-primary" />
+                <h2 className="text-2xl font-semibold tracking-tight">AI Readmission Predictor</h2>
+              </div>
+              <Card>
+                <form onSubmit={handlePredict} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-muted-foreground">Disease Category</label>
+                    <select 
+                      className="w-full bg-background border border-border rounded-md p-2"
+                      value={mlForm.disease}
+                      onChange={e => setMlForm({...mlForm, disease: e.target.value})}
+                    >
+                      <option>Heart Disease</option>
+                      <option>Diabetes</option>
+                      <option>Sepsis</option>
+                      <option>Pneumonia</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-muted-foreground">Age Band</label>
+                    <select 
+                      className="w-full bg-background border border-border rounded-md p-2"
+                      value={mlForm.age_band}
+                      onChange={e => setMlForm({...mlForm, age_band: e.target.value})}
+                    >
+                      <option>41-50</option>
+                      <option>51-60</option>
+                      <option>61-70</option>
+                      <option>71-80</option>
+                      <option>81-90</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-muted-foreground">Treatment Cost ($)</label>
+                    <input 
+                      type="number"
+                      className="w-full bg-background border border-border rounded-md p-2"
+                      value={mlForm.treatment_cost}
+                      onChange={e => setMlForm({...mlForm, treatment_cost: Number(e.target.value)})}
+                    />
+                  </div>
+                  <button 
+                    type="submit" 
+                    disabled={predicting}
+                    className="w-full bg-primary text-primary-foreground font-semibold py-2 rounded-md hover:bg-primary/90 transition-colors"
                   >
-                    <option>Heart Disease</option>
-                    <option>Diabetes</option>
-                    <option>Sepsis</option>
-                    <option>Pneumonia</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1 text-muted-foreground">Age Band</label>
-                  <select 
-                    className="w-full bg-background border border-border rounded-md p-2"
-                    value={mlForm.age_band}
-                    onChange={e => setMlForm({...mlForm, age_band: e.target.value})}
-                  >
-                    <option>41-50</option>
-                    <option>51-60</option>
-                    <option>61-70</option>
-                    <option>71-80</option>
-                    <option>81-90</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1 text-muted-foreground">Treatment Cost ($)</label>
-                  <input 
-                    type="number"
-                    className="w-full bg-background border border-border rounded-md p-2"
-                    value={mlForm.treatment_cost}
-                    onChange={e => setMlForm({...mlForm, treatment_cost: Number(e.target.value)})}
-                  />
-                </div>
-                <button 
-                  type="submit" 
-                  disabled={predicting}
-                  className="w-full bg-primary text-primary-foreground font-semibold py-2 rounded-md hover:bg-primary/90 transition-colors"
-                >
-                  {predicting ? "Running Inference..." : "Predict Readmission Risk"}
-                </button>
-              </form>
-            </Card>
-            <Card className="lg:col-span-2 bg-gradient-to-br from-card to-muted/20 flex flex-col justify-center items-center text-center p-8">
-              {!prediction ? (
-                <div className="text-muted-foreground">
-                  <Cpu className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>Enter patient details to run a real-time prediction against the PySpark RandomForest model.</p>
-                </div>
-              ) : (
-                <div className="space-y-4 animate-in fade-in zoom-in duration-300">
+                    {predicting ? "Running Inference..." : "Predict Readmission Risk"}
+                  </button>
+                </form>
+              </Card>
+              {prediction && (
+                <Card className="bg-gradient-to-br from-card to-muted/20 flex flex-col justify-center items-center text-center p-8 animate-in zoom-in duration-300">
                   <h3 className="text-xl font-medium text-muted-foreground">Prediction Result</h3>
                   <div className={cn(
-                    "text-6xl font-black",
-                    prediction.risk_category === "High" ? "text-red-500" : "text-green-500"
+                    "text-6xl font-black mt-2",
+                    prediction.prediction === "High Risk" ? "text-red-500" : "text-green-500"
                   )}>
-                    {(prediction.readmission_probability * 100).toFixed(1)}%
+                    {prediction.probability}
                   </div>
-                  <div className="inline-block px-4 py-1 rounded-full bg-background border border-border font-medium">
-                    Risk Level: {prediction.risk_category}
+                  <div className="inline-block px-4 py-1 mt-4 rounded-full bg-background border border-border font-medium">
+                    {prediction.prediction}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-4 font-mono">
-                    Inference via: {prediction.model_used}
-                  </p>
-                </div>
+                </Card>
               )}
-            </Card>
-          </div>
-        </section>
+            </section>
 
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="flex flex-col h-[400px]">
-            <h3 className="text-lg font-semibold mb-4">Year-over-Year Disease Trend</h3>
-            <div className="flex-1 w-full">
-              {loading ? <Skeleton className="h-full w-full" /> : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={data.trends}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="opacity-10" />
-                    <XAxis dataKey="year" stroke="currentColor" className="opacity-50 text-xs" />
-                    <YAxis stroke="currentColor" className="opacity-50 text-xs" />
-                    <RechartsTooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }} itemStyle={{ color: 'hsl(var(--foreground))' }} />
-                    <Legend />
-                    <Line type="monotone" dataKey="Heart Disease" stroke="#ef4444" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-                    <Line type="monotone" dataKey="Diabetes" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4 }} />
-                    <Line type="monotone" dataKey="Pneumonia" stroke="#10b981" strokeWidth={3} dot={{ r: 4 }} />
-                  </LineChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          </Card>
-          <Card className="flex flex-col h-[400px]">
-            <h3 className="text-lg font-semibold mb-4">Regional Disease Burden</h3>
-            <div className="flex-1 w-full">
-              {loading ? <Skeleton className="h-full w-full" /> : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={data.regions}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="opacity-10" vertical={false} />
-                    <XAxis dataKey="region" stroke="currentColor" className="opacity-50 text-xs" />
-                    <YAxis stroke="currentColor" className="opacity-50 text-xs" />
-                    <RechartsTooltip cursor={{fill: 'currentColor', opacity: 0.05}} contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }} />
-                    <Bar dataKey="cases" radius={[4, 4, 0, 0]}>
-                      {data.regions?.map((_: any, index: number) => (
-                        <Cell key={`cell-${index}`} fill={index % 2 === 0 ? '#3b82f6' : '#60a5fa'} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          </Card>
-        </section>
-
-        <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <Card className="lg:col-span-1 flex flex-col h-[350px] bg-gradient-to-br from-card to-muted/30">
-            <div className="flex items-center gap-2 mb-4">
-              <Clock className="h-5 w-5 text-primary" />
-              <h3 className="text-lg font-semibold">MapReduce vs Spark Runtime</h3>
-            </div>
-            <p className="text-sm text-muted-foreground mb-4">
-              Spark achieves significant speedups by caching intermediate data in-memory, avoiding HDFS disk I/O overhead required by standard MapReduce jobs.
-            </p>
-            <div className="flex-1 w-full">
-              {loading ? <Skeleton className="h-full w-full" /> : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={data.perf} layout="vertical" margin={{ top: 0, right: 30, left: 40, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="opacity-10" horizontal={false} />
-                    <XAxis type="number" stroke="currentColor" className="opacity-50 text-xs" unit="s" />
-                    <YAxis dataKey="framework" type="category" stroke="currentColor" className="opacity-80 text-xs font-medium" />
-                    <RechartsTooltip cursor={{fill: 'currentColor', opacity: 0.05}} contentStyle={{ backgroundColor: 'hsl(var(--card))', borderRadius: '8px' }} />
-                    <Bar dataKey="time" radius={[0, 4, 4, 0]} barSize={30}>
-                      {data.perf?.map((entry: any, index: number) => (
-                        <Cell key={`cell-${index}`} fill={entry.framework.includes('Spark') ? '#f97316' : '#64748b'} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          </Card>
-          <Card className="lg:col-span-2 flex flex-col relative overflow-hidden border-primary/50">
-            <div className="absolute top-0 right-0 p-32 bg-primary/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="bg-primary/20 text-primary p-1.5 rounded-md">
-                <AlertTriangle className="h-5 w-5" />
+            <section className="space-y-6 flex flex-col">
+              <div className="flex items-center gap-2 border-b border-border pb-2">
+                <Cpu className="h-6 w-6 text-primary" />
+                <h2 className="text-2xl font-semibold tracking-tight">Chat with your Data</h2>
               </div>
-              <span className="text-sm font-bold uppercase tracking-wider text-primary">Surprising Insight</span>
-            </div>
-            {loading ? <Skeleton className="h-32 w-full mt-4" /> : (
-              <>
-                <h3 className="text-2xl font-bold mt-2 mb-3">{data.insight?.insight_title}</h3>
-                <p className="text-muted-foreground mb-6 leading-relaxed">
-                  {data.insight?.description}
-                </p>
-                <div className="mt-auto h-[180px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={data.insight?.data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="opacity-10" vertical={false} />
-                      <XAxis dataKey="disease" stroke="currentColor" className="opacity-50 text-xs" />
-                      <YAxis stroke="currentColor" className="opacity-50 text-xs" tickFormatter={(v) => `${v}%`} />
-                      <RechartsTooltip cursor={{fill: 'currentColor', opacity: 0.05}} contentStyle={{ backgroundColor: 'hsl(var(--card))', borderRadius: '8px' }} />
-                      <Legend />
-                      <Bar dataKey="weekday_rate" name="Weekday Admit Readmission %" fill="#94a3b8" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="weekend_rate" name="Weekend Admit Readmission %" fill="#ef4444" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </>
-            )}
-          </Card>
-        </section>
+              <GrokChatbot />
+            </section>
+          </div>
+        )}
       </main>
       
       <footer className="border-t border-border mt-12 py-8 text-center text-sm text-muted-foreground">
-        <p>Built for Big Data Essentials Capstone. Powered by React, FastAPI, Spark ML, and Airflow.</p>
+        <p>Built for Big Data Essentials Capstone. Powered by React, FastAPI, Spark ML, and Grok AI.</p>
       </footer>
     </div>
   );
