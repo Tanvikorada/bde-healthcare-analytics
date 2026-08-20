@@ -16,7 +16,7 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
+    --background: 210 40% 98%;
     --foreground: 222.2 84% 4.9%;
     --card: 0 0% 100%;
     --card-foreground: 222.2 84% 4.9%;
@@ -30,17 +30,17 @@
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
+    --background: 230 25% 10%; /* Deep premium dark blue */
     --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
+    --card: 230 25% 14%; /* Slightly lighter than bg for cards */
     --card-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
+    --primary: 250 85% 65%; /* Vibrant purple/blue for primary actions */
+    --primary-foreground: 210 40% 98%;
+    --muted: 230 25% 18%;
+    --muted-foreground: 215 20.2% 75.1%;
+    --accent: 260 70% 50%;
     --accent-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
+    --border: 230 25% 20%;
   }
 }
 

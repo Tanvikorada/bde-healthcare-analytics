@@ -3,7 +3,7 @@ import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, Cell 
 } from 'recharts';
 import { 
-  Moon, Sun, Activity, Users, Map, AlertTriangle, Database, Cpu, Zap, Target, Upload, FileUp, CheckCircle2, XCircle, MessageSquare, Radio, Send
+  Activity, Users, Map, AlertTriangle, Database, Cpu, Zap, Target, Upload, FileUp, CheckCircle2, XCircle, MessageSquare, Radio, Send
 } from 'lucide-react';
 import clsx from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -78,7 +78,7 @@ const fetchApi = async (endpoint: string) => {
 };
 
 const Card = ({ children, className }: { children: React.ReactNode, className?: string }) => (
-  <div className={cn("bg-card text-card-foreground rounded-xl border border-border shadow-sm p-6", className)}>
+  <div className={cn("bg-card/60 backdrop-blur-xl text-card-foreground rounded-2xl border border-white/10 shadow-2xl p-6 transition-all duration-300 hover:shadow-primary/5 hover:border-primary/20", className)}>
     {children}
   </div>
 );
@@ -224,7 +224,7 @@ const GrokChatbot = () => {
 // --- Main App ---
 
 function App() {
-  const [darkMode, setDarkMode] = useState(true);
+  const [darkMode] = useState(true);
   const [activeTab, setActiveTab] = useState<'batch' | 'streaming' | 'ai'>('batch');
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any>({});
@@ -326,7 +326,11 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground transition-colors duration-300 font-sans selection:bg-primary/30">
+    <div className="dark min-h-screen bg-background text-foreground transition-colors duration-300 font-sans selection:bg-primary/30 relative overflow-hidden">
+      {/* Dynamic Background Gradients */}
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-primary/20 blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-accent/20 blur-[120px] pointer-events-none" />
+      <div className="relative z-10">
       <nav className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -355,10 +359,6 @@ function App() {
               AI Insights
             </button>
           </div>
-
-          <button onClick={() => setDarkMode(!darkMode)} className="p-2 rounded-full hover:bg-muted transition-colors">
-            {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-          </button>
         </div>
       </nav>
 
@@ -585,6 +585,7 @@ function App() {
       <footer className="border-t border-border mt-12 py-8 text-center text-sm text-muted-foreground">
         <p>Built for Big Data Essentials Capstone. Powered by React, FastAPI, Spark ML, and Grok AI.</p>
       </footer>
+      </div>
     </div>
   );
 }
