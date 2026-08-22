@@ -3,7 +3,7 @@ import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, Cell 
 } from 'recharts';
 import { 
-  Activity, Users, Map, AlertTriangle, Database, Cpu, Target, Upload, FileUp, CheckCircle2, XCircle, MessageSquare, Radio, Send
+  Activity, Users, Map, AlertTriangle, Database, Cpu, Target, Upload, FileUp, CheckCircle2, XCircle, MessageSquare, Radio, Send, Sun, Moon
 } from 'lucide-react';
 import clsx from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -38,13 +38,13 @@ const fetchApi = async (endpoint: string, options: RequestInit = {}) => {
 };
 
 const Card = ({ children, className }: { children: React.ReactNode, className?: string }) => (
-  <div className={cn("bg-[var(--color-white)] text-[var(--color-pure-black)] rounded-[var(--radius-sm)] border border-[var(--color-mist)] p-[var(--card-padding)] transition-all duration-300", className)}>
+  <div className={cn("bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] text-[var(--text-primary)] rounded-[var(--radius-sm)] border border-[var(--border-color)] p-[var(--card-padding)] transition-all duration-300", className)}>
     {children}
   </div>
 );
 
 const Skeleton = ({ className }: { className?: string }) => (
-  <div className={cn("animate-pulse bg-[var(--color-cloud)] rounded-[var(--radius-sm)]", className)} />
+  <div className={cn("animate-pulse bg-[var(--bg-secondary)] rounded-[var(--radius-sm)]", className)} />
 );
 
 // --- Subcomponents ---
@@ -151,17 +151,17 @@ const GrokChatbot = () => {
 
   return (
     <Card className="flex flex-col h-[600px] p-0 overflow-hidden">
-      <div className="bg-[var(--color-white)] border-b border-[var(--color-mist)] p-4 flex items-center gap-2 rounded-t-[var(--radius-sm)]">
-        <MessageSquare className="h-5 w-5 text-[var(--color-pure-black)]" />
-        <h3 className="text-[var(--text-heading-sm)] font-bold tracking-tight text-[var(--color-pure-black)]">Grok Data Assistant</h3>
+      <div className="bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] border-b border-[var(--border-color)] p-4 flex items-center gap-2 rounded-t-[var(--radius-sm)]">
+        <MessageSquare className="h-5 w-5 text-[var(--text-primary)]" />
+        <h3 className="text-[var(--text-heading-sm)] font-bold tracking-tight text-[var(--text-primary)]">Grok Data Assistant</h3>
       </div>
       
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[var(--color-paper)]">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[var(--bg-secondary)]">
         {messages.map((msg, idx) => (
           <div key={idx} className={cn("flex", msg.role === 'user' ? "justify-end" : "justify-start")}>
             <div className={cn(
-              "max-w-[80%] rounded-[var(--radius-sm)] px-[var(--spacing-16)] py-[var(--spacing-16)] text-[var(--text-body-sm)] border border-[var(--color-mist)]",
-              msg.role === 'user' ? "bg-[var(--color-pure-black)] text-[var(--color-white)]" : "bg-[var(--color-white)] text-[var(--color-pure-black)] shadow-sm"
+              "max-w-[80%] rounded-[var(--radius-sm)] px-[var(--spacing-16)] py-[var(--spacing-16)] text-[var(--text-body-sm)] border border-[var(--border-color)]",
+              msg.role === 'user' ? "bg-[var(--accent-primary)] text-white" : "bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] text-[var(--text-primary)] shadow-sm"
             )}>
               {msg.content}
             </div>
@@ -169,24 +169,24 @@ const GrokChatbot = () => {
         ))}
         {loading && (
           <div className="flex justify-start">
-            <div className="bg-[var(--color-white)] border border-[var(--color-mist)] rounded-[var(--radius-sm)] px-[var(--spacing-16)] py-[var(--spacing-16)] text-sm animate-pulse flex items-center gap-2">
-              <div className="h-2 w-2 bg-[var(--color-iron)] rounded-full animate-bounce"></div>
-              <div className="h-2 w-2 bg-[var(--color-iron)] rounded-full animate-bounce delay-75"></div>
-              <div className="h-2 w-2 bg-[var(--color-iron)] rounded-full animate-bounce delay-150"></div>
+            <div className="bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] border border-[var(--border-color)] rounded-[var(--radius-sm)] px-[var(--spacing-16)] py-[var(--spacing-16)] text-sm animate-pulse flex items-center gap-2">
+              <div className="h-2 w-2 bg-[var(--text-secondary)] rounded-full animate-bounce"></div>
+              <div className="h-2 w-2 bg-[var(--text-secondary)] rounded-full animate-bounce delay-75"></div>
+              <div className="h-2 w-2 bg-[var(--text-secondary)] rounded-full animate-bounce delay-150"></div>
             </div>
           </div>
         )}
       </div>
 
-      <form onSubmit={handleSend} className="p-[var(--spacing-16)] border-t border-[var(--color-mist)] flex gap-2 bg-[var(--color-white)] rounded-b-[var(--radius-sm)]">
+      <form onSubmit={handleSend} className="p-[var(--spacing-16)] border-t border-[var(--border-color)] flex gap-2 bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] rounded-b-[var(--radius-sm)]">
         <input 
           type="text" 
           value={input}
           onChange={e => setInput(e.target.value)}
           placeholder="Ask Grok about anomalies, predictions, or trends..."
-          className="flex-1 bg-[var(--color-white)] border border-[var(--color-mist)] rounded-[var(--radius-inputs)] px-4 py-3 text-[var(--text-body-sm)] text-[var(--color-pure-black)] focus:outline-none focus:border-[var(--color-pure-black)] transition-colors"
+          className="flex-1 bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] border border-[var(--border-color)] rounded-[var(--radius-inputs)] px-4 py-3 text-[var(--text-body-sm)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--text-primary)] transition-colors"
         />
-        <button type="submit" disabled={loading} className="bg-[var(--color-pure-black)] text-[var(--color-white)] px-[20px] py-[10px] rounded-[var(--radius-buttons)] hover:bg-[var(--color-obsidian)] disabled:opacity-50 transition-colors shadow-sm">
+        <button type="submit" disabled={loading} className="bg-[var(--accent-primary)] text-white px-[20px] py-[10px] rounded-[var(--radius-buttons)] hover:opacity-90 disabled:opacity-50 transition-colors shadow-sm">
           <Send className="h-4 w-4" />
         </button>
       </form>
@@ -197,6 +197,21 @@ const GrokChatbot = () => {
 // --- Main App ---
 
 function App() {
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    const saved = localStorage.getItem('theme');
+    if (saved === 'dark' || saved === 'light') return saved;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  });
+
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
   const [activeTab, setActiveTab] = useState<'batch' | 'streaming' | 'ai'>('batch');
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any>({});
@@ -354,43 +369,43 @@ function App() {
 
   if (!token) {
     return (
-      <div className="min-h-screen font-sans antialiased flex flex-col items-center justify-center bg-[var(--color-cloud)]">
+      <div className="min-h-screen font-sans antialiased flex flex-col items-center justify-center bg-[var(--bg-secondary)]">
         <Card className="w-full max-w-md relative z-10 p-[var(--spacing-32)] space-y-[var(--spacing-32)] shadow-sm">
           <div className="text-center">
-            <div className="inline-flex items-center justify-center w-[48px] h-[48px] rounded-[var(--radius-sm)] bg-[var(--color-paper)] border border-[var(--color-mist)] text-[var(--color-pure-black)] mb-[var(--spacing-24)]">
+            <div className="inline-flex items-center justify-center w-[48px] h-[48px] rounded-[var(--radius-sm)] bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-primary)] mb-[var(--spacing-24)]">
               <Activity className="h-6 w-6" />
             </div>
-            <h1 className="text-[var(--text-heading)] leading-[var(--leading-heading)] font-bold tracking-tight text-[var(--color-pure-black)] mb-[var(--spacing-16)] font-fraktion">
+            <h1 className="text-[var(--text-heading)] leading-[var(--leading-heading)] font-bold tracking-tight text-[var(--text-primary)] mb-[var(--spacing-16)] font-fraktion">
               Login
             </h1>
-            <p className="text-[var(--text-body)] text-[var(--color-iron)] max-w-[640px] mx-auto">
+            <p className="text-[var(--text-body)] text-[var(--text-secondary)] max-w-[640px] mx-auto">
               Secure access to BDE Healthcare Analytics
             </p>
           </div>
           
           <form onSubmit={handleLogin} className="space-y-[var(--spacing-24)] mt-[var(--spacing-32)]">
             <div>
-              <label className="block text-[var(--text-caption)] font-medium mb-[var(--spacing-8)] text-[var(--color-graphite)] tracking-wider uppercase">Username</label>
+              <label className="block text-[var(--text-caption)] font-medium mb-[var(--spacing-8)] text-[var(--text-secondary)] tracking-wider uppercase">Username</label>
               <input 
                 type="text" 
                 value={username}
                 onChange={e => setUsername(e.target.value)}
-                className="w-full bg-[var(--color-white)] border border-[var(--color-mist)] rounded-[var(--radius-inputs)] p-[var(--spacing-16)] text-[var(--text-body-sm)] text-[var(--color-pure-black)] focus:outline-none focus:border-[var(--color-pure-black)] transition-colors"
+                className="w-full bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] border border-[var(--border-color)] rounded-[var(--radius-inputs)] p-[var(--spacing-16)] text-[var(--text-body-sm)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--text-primary)] transition-colors"
               />
             </div>
             <div>
-              <label className="block text-[var(--text-caption)] font-medium mb-[var(--spacing-8)] text-[var(--color-graphite)] tracking-wider uppercase">Password</label>
+              <label className="block text-[var(--text-caption)] font-medium mb-[var(--spacing-8)] text-[var(--text-secondary)] tracking-wider uppercase">Password</label>
               <input 
                 type="password" 
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                className="w-full bg-[var(--color-white)] border border-[var(--color-mist)] rounded-[var(--radius-inputs)] p-[var(--spacing-16)] text-[var(--text-body-sm)] text-[var(--color-pure-black)] focus:outline-none focus:border-[var(--color-pure-black)] transition-colors"
+                className="w-full bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] border border-[var(--border-color)] rounded-[var(--radius-inputs)] p-[var(--spacing-16)] text-[var(--text-body-sm)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--text-primary)] transition-colors"
               />
             </div>
-            {loginError && <p className="text-[var(--color-pure-black)] text-[var(--text-body-sm)] font-medium">{loginError}</p>}
+            {loginError && <p className="text-[var(--text-primary)] text-[var(--text-body-sm)] font-medium">{loginError}</p>}
             <button 
               type="submit" 
-              className="w-full bg-[var(--color-pure-black)] text-[var(--color-white)] rounded-[var(--radius-buttons)] font-medium px-[var(--spacing-24)] py-[12px] shadow-sm hover:bg-[var(--color-obsidian)] transition-colors"
+              className="w-full bg-[var(--accent-primary)] text-white rounded-[var(--radius-buttons)] font-medium px-[var(--spacing-24)] py-[12px] shadow-sm hover:opacity-90 transition-colors"
             >
               Sign In
             </button>
@@ -405,36 +420,42 @@ function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[var(--color-cloud)]">
+      <div className="min-h-screen flex items-center justify-center bg-[var(--bg-secondary)]">
         <div className="animate-pulse flex flex-col items-center gap-4">
-          <Activity className="h-12 w-12 text-[var(--color-pure-black)] animate-bounce" />
-          <p className="text-[var(--text-subheading)] font-medium tracking-tight text-[var(--color-pure-black)]">Initializing Data...</p>
+          <Activity className="h-12 w-12 text-[var(--text-primary)] animate-bounce" />
+          <p className="text-[var(--text-subheading)] font-medium tracking-tight text-[var(--text-primary)]">Initializing Data...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen font-sans antialiased selection:bg-[var(--color-glacier-tint)] selection:text-[var(--color-pure-black)] bg-[var(--color-cloud)]">
+    <div className="min-h-screen font-sans antialiased selection:bg-[var(--accent-glow)] selection:text-[var(--text-primary)] bg-[var(--bg-secondary)]">
       <div className="relative z-10 w-full">
         {/* Top Navigation - Glassnode style */}
-        <header className="w-full bg-[var(--color-white)] border-b border-[var(--color-mist)] h-[64px] flex items-center px-[var(--spacing-24)] justify-between animate-in slide-in-from-top-4 duration-500 sticky top-0 z-50">
+        <header className="w-full bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] border-b border-[var(--border-color)] h-[64px] flex items-center px-[var(--spacing-24)] justify-between animate-in slide-in-from-top-4 duration-500 sticky top-0 z-50">
           <div className="flex items-center gap-[var(--spacing-8)]">
-            <Activity className="h-5 w-5 text-[var(--color-pure-black)]" />
-            <span className="text-[var(--text-subheading)] font-bold tracking-tight text-[var(--color-pure-black)]">glassnode</span>
-            <span className="text-[var(--text-body-sm)] text-[var(--color-iron)] ml-2 border-l border-[var(--color-mist)] pl-2">BDE Healthcare</span>
+            <Activity className="h-5 w-5 text-[var(--text-primary)]" />
+            <span className="text-[var(--text-subheading)] font-bold tracking-tight text-[var(--text-primary)]">glassnode</span>
+            <span className="text-[var(--text-body-sm)] text-[var(--text-secondary)] ml-2 border-l border-[var(--border-color)] pl-2">BDE Healthcare</span>
           </div>
           <div className="flex items-center gap-[var(--spacing-16)]">
+            <button
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              className="p-2 rounded-full hover:bg-[var(--bg-secondary)] text-[var(--text-secondary)] transition-colors"
+            >
+              {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            </button>
             <button
               onClick={() => {
                 localStorage.removeItem('token');
                 window.location.reload();
               }}
-              className="bg-transparent text-[var(--color-pure-black)] font-medium text-[var(--text-body-sm)] px-[20px] py-[10px] rounded-[var(--radius-buttons)] hover:bg-[var(--color-paper)] transition-colors"
+              className="bg-transparent text-[var(--text-primary)] font-medium text-[var(--text-body-sm)] px-[20px] py-[10px] rounded-[var(--radius-buttons)] hover:bg-[var(--bg-secondary)] transition-colors"
             >
               Log out
             </button>
-            <button className="bg-[var(--color-pure-black)] text-[var(--color-white)] font-medium text-[var(--text-body-sm)] px-[20px] py-[10px] rounded-[var(--radius-buttons)] shadow-sm hover:bg-[var(--color-obsidian)] transition-colors">
+            <button className="bg-[var(--accent-primary)] text-white font-medium text-[var(--text-body-sm)] px-[20px] py-[10px] rounded-[var(--radius-buttons)] shadow-sm hover:opacity-90 transition-colors">
               Launch Studio
             </button>
           </div>
@@ -442,22 +463,22 @@ function App() {
 
       <nav className="w-full mb-[var(--section-gap)]">
         <div className="flex items-center justify-center">
-          <div className="hidden md:flex bg-[var(--color-paper)] p-1 rounded-[var(--radius-sm)] border border-[var(--color-mist)]">
+          <div className="hidden md:flex bg-[var(--bg-secondary)] p-1 rounded-[var(--radius-sm)] border border-[var(--border-color)]">
             <button 
               onClick={() => setActiveTab('batch')} 
-              className={cn("px-[20px] py-[8px] text-[var(--text-body-sm)] font-medium rounded-[var(--radius-sm)] transition-all border", activeTab === 'batch' ? "bg-[var(--color-pure-black)] border-[var(--color-pure-black)] text-[var(--color-white)]" : "bg-transparent border-transparent text-[var(--color-iron)] hover:text-[var(--color-pure-black)]")}
+              className={cn("px-[20px] py-[8px] text-[var(--text-body-sm)] font-medium rounded-[var(--radius-sm)] transition-all border", activeTab === 'batch' ? "bg-[var(--accent-primary)] border-[var(--text-primary)] text-white" : "bg-transparent border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]")}
             >
               Batch Analytics
             </button>
             <button 
               onClick={() => setActiveTab('streaming')} 
-              className={cn("px-[20px] py-[8px] text-[var(--text-body-sm)] font-medium rounded-[var(--radius-sm)] transition-all border", activeTab === 'streaming' ? "bg-[var(--color-pure-black)] border-[var(--color-pure-black)] text-[var(--color-white)]" : "bg-transparent border-transparent text-[var(--color-iron)] hover:text-[var(--color-pure-black)]")}
+              className={cn("px-[20px] py-[8px] text-[var(--text-body-sm)] font-medium rounded-[var(--radius-sm)] transition-all border", activeTab === 'streaming' ? "bg-[var(--accent-primary)] border-[var(--text-primary)] text-white" : "bg-transparent border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]")}
             >
               Live Streaming (Speed Layer)
             </button>
             <button 
               onClick={() => setActiveTab('ai')} 
-              className={cn("px-[20px] py-[8px] text-[var(--text-body-sm)] font-medium rounded-[var(--radius-sm)] transition-all border", activeTab === 'ai' ? "bg-[var(--color-pure-black)] border-[var(--color-pure-black)] text-[var(--color-white)]" : "bg-transparent border-transparent text-[var(--color-iron)] hover:text-[var(--color-pure-black)]")}
+              className={cn("px-[20px] py-[8px] text-[var(--text-body-sm)] font-medium rounded-[var(--radius-sm)] transition-all border", activeTab === 'ai' ? "bg-[var(--accent-primary)] border-[var(--text-primary)] text-white" : "bg-transparent border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]")}
             >
               AI Insights
             </button>
@@ -467,14 +488,14 @@ function App() {
 
       <main className="w-full pb-16">
         <section className="w-full max-w-[var(--page-max-width)] mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-24 flex flex-col items-start md:items-center md:text-center space-y-[var(--spacing-24)]">
-          <div className="inline-flex items-center rounded-[var(--radius-sm)] border border-[var(--color-mist)] bg-[var(--color-white)] pl-1 pr-3 py-1 mb-4">
-            <div className="bg-[var(--color-pure-black)] text-[var(--color-white)] rounded-[1px] w-6 h-6 flex items-center justify-center text-[12px] font-medium mr-2">1</div>
+          <div className="inline-flex items-center rounded-[var(--radius-sm)] border border-[var(--border-color)] bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] pl-1 pr-3 py-1 mb-4">
+            <div className="bg-[var(--accent-primary)] text-white rounded-[1px] w-6 h-6 flex items-center justify-center text-[12px] font-medium mr-2">1</div>
             <span className="text-[12px] font-medium text-[var(--color-badge-slate)] uppercase">LAMBDA ARCHITECTURE</span>
           </div>
-          <h1 className="text-[var(--text-display)] leading-[var(--leading-display)] font-bold text-[var(--color-pure-black)] max-w-4xl font-fraktion">
-            Uncovering Healthcare Insights <span className="bg-[var(--color-glacier-tint)] px-2">at Petabyte Scale</span>
+          <h1 className="text-[var(--text-display)] leading-[var(--leading-display)] font-bold text-[var(--text-primary)] max-w-4xl font-fraktion">
+            Uncovering Healthcare Insights <span className="bg-[var(--accent-glow)] px-2">at Petabyte Scale</span>
           </h1>
-          <p className="text-[var(--text-heading-sm)] text-[var(--color-iron)] max-w-[800px] leading-relaxed mx-auto font-medium">
+          <p className="text-[var(--text-heading-sm)] text-[var(--text-secondary)] max-w-[800px] leading-relaxed mx-auto font-medium">
             A full-stack Lambda Architecture demonstrating Apache Hadoop, Hive, Spark Streaming, and Grok Generative AI to analyze and predict hospital readmissions.
           </p>
         </section>
@@ -483,13 +504,13 @@ function App() {
         {!loading && !data.kpis && (
           <div className="w-full max-w-[var(--page-max-width)] mx-auto px-4 sm:px-6 lg:px-8 space-y-[var(--spacing-80)] animate-in fade-in duration-500">
             <section className="flex flex-col items-center w-full max-w-xl mx-auto">
-              <Card className="w-full relative overflow-hidden bg-[var(--color-white)]">
+              <Card className="w-full relative overflow-hidden bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)]">
                 <div className="flex flex-col items-center justify-center p-[var(--spacing-32)] text-center">
-                  <div className="p-[var(--spacing-16)] rounded-[var(--radius-sm)] border border-[var(--color-mist)] bg-[var(--color-paper)] text-[var(--color-pure-black)] mb-[var(--spacing-16)]">
-                    {isUploading ? <Activity className="h-8 w-8 animate-pulse text-[var(--color-iron)]" /> : <FileUp className="h-8 w-8 text-[var(--color-iron)]" />}
+                  <div className="p-[var(--spacing-16)] rounded-[var(--radius-sm)] border border-[var(--border-color)] bg-[var(--bg-secondary)] text-[var(--text-primary)] mb-[var(--spacing-16)]">
+                    {isUploading ? <Activity className="h-8 w-8 animate-pulse text-[var(--text-secondary)]" /> : <FileUp className="h-8 w-8 text-[var(--text-secondary)]" />}
                   </div>
-                  <h3 className="text-[var(--text-heading-sm)] font-bold mb-[var(--spacing-8)] text-[var(--color-pure-black)]">Upload Dataset to Begin</h3>
-                  <p className="text-[var(--text-body)] text-[var(--color-iron)] mb-[var(--spacing-24)]">
+                  <h3 className="text-[var(--text-heading-sm)] font-bold mb-[var(--spacing-8)] text-[var(--text-primary)]">Upload Dataset to Begin</h3>
+                  <p className="text-[var(--text-body)] text-[var(--text-secondary)] mb-[var(--spacing-24)]">
                     Please upload a healthcare CSV dataset to initialize the PySpark cluster and unlock the dashboard.
                   </p>
                   
@@ -503,7 +524,7 @@ function App() {
                     />
                     <button 
                       disabled={isUploading}
-                      className="bg-[var(--color-pure-black)] text-[var(--color-white)] font-medium px-[24px] py-[12px] rounded-[var(--radius-buttons)] flex items-center gap-2 hover:bg-[var(--color-obsidian)] transition-colors disabled:opacity-50"
+                      className="bg-[var(--accent-primary)] text-white font-medium px-[24px] py-[12px] rounded-[var(--radius-buttons)] flex items-center gap-2 hover:opacity-90 transition-colors disabled:opacity-50"
                     >
                       <Upload className="h-4 w-4" />
                       {isUploading ? "Uploading & Processing..." : "Select CSV File"}
@@ -514,7 +535,7 @@ function App() {
                     <div className={cn(
                       "mt-[var(--spacing-24)] flex items-center gap-2 text-[var(--text-caption)] font-medium animate-in fade-in duration-300",
                       uploadStatus === 'success' ? "text-[#10b981]" : 
-                      uploadStatus === 'error' ? "text-[#ef4444]" : "text-[var(--color-pure-black)]"
+                      uploadStatus === 'error' ? "text-[#ef4444]" : "text-[var(--text-primary)]"
                     )}>
                       {uploadStatus === 'success' && <CheckCircle2 className="h-4 w-4" />}
                       {uploadStatus === 'error' && <XCircle className="h-4 w-4" />}
@@ -532,9 +553,9 @@ function App() {
           <>
             {/* Mobile Tabs */}
             <div className="flex md:hidden gap-[var(--spacing-8)] w-full overflow-x-auto mb-[var(--section-gap)] pb-2 px-4">
-                <button onClick={() => setActiveTab('batch')} className={cn("flex-1 px-4 py-2 text-[var(--text-body-sm)] font-medium rounded-[var(--radius-sm)] transition-all whitespace-nowrap border", activeTab === 'batch' ? "bg-[var(--color-pure-black)] border-[var(--color-pure-black)] text-[var(--color-white)]" : "bg-[var(--color-white)] border-[var(--color-mist)] text-[var(--color-pure-black)]")}>Batch</button>
-                <button onClick={() => setActiveTab('streaming')} className={cn("flex-1 px-4 py-2 text-[var(--text-body-sm)] font-medium rounded-[var(--radius-sm)] transition-all whitespace-nowrap border", activeTab === 'streaming' ? "bg-[var(--color-pure-black)] border-[var(--color-pure-black)] text-[var(--color-white)]" : "bg-[var(--color-white)] border-[var(--color-mist)] text-[var(--color-pure-black)]")}>Streaming</button>
-                <button onClick={() => setActiveTab('ai')} className={cn("flex-1 px-4 py-2 text-[var(--text-body-sm)] font-medium rounded-[var(--radius-sm)] transition-all whitespace-nowrap border", activeTab === 'ai' ? "bg-[var(--color-pure-black)] border-[var(--color-pure-black)] text-[var(--color-white)]" : "bg-[var(--color-white)] border-[var(--color-mist)] text-[var(--color-pure-black)]")}>AI Insights</button>
+                <button onClick={() => setActiveTab('batch')} className={cn("flex-1 px-4 py-2 text-[var(--text-body-sm)] font-medium rounded-[var(--radius-sm)] transition-all whitespace-nowrap border", activeTab === 'batch' ? "bg-[var(--accent-primary)] border-[var(--text-primary)] text-white" : "bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] border-[var(--border-color)] text-[var(--text-primary)]")}>Batch</button>
+                <button onClick={() => setActiveTab('streaming')} className={cn("flex-1 px-4 py-2 text-[var(--text-body-sm)] font-medium rounded-[var(--radius-sm)] transition-all whitespace-nowrap border", activeTab === 'streaming' ? "bg-[var(--accent-primary)] border-[var(--text-primary)] text-white" : "bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] border-[var(--border-color)] text-[var(--text-primary)]")}>Streaming</button>
+                <button onClick={() => setActiveTab('ai')} className={cn("flex-1 px-4 py-2 text-[var(--text-body-sm)] font-medium rounded-[var(--radius-sm)] transition-all whitespace-nowrap border", activeTab === 'ai' ? "bg-[var(--accent-primary)] border-[var(--text-primary)] text-white" : "bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] border-[var(--border-color)] text-[var(--text-primary)]")}>AI Insights</button>
             </div>
 
         {/* --- TAB: BATCH ANALYTICS --- */}
@@ -551,11 +572,11 @@ function App() {
               ].map((kpi, i) => (
                 <Card key={i} className="hover:-translate-y-1 transition-transform group">
                   <div className="flex items-center justify-between pb-2">
-                    <h3 className="text-[var(--text-caption)] font-medium text-[var(--color-iron)] uppercase tracking-wider">{kpi.label}</h3>
-                    <kpi.icon className="h-4 w-4 text-[var(--color-iron)] group-hover:text-[var(--color-pure-black)] transition-colors" />
+                    <h3 className="text-[var(--text-caption)] font-medium text-[var(--text-secondary)] uppercase tracking-wider">{kpi.label}</h3>
+                    <kpi.icon className="h-4 w-4 text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors" />
                   </div>
                   <div className="mt-2">
-                    <div className={cn("text-[var(--text-heading)] font-medium text-[var(--color-pure-black)]", kpi.color === "text-red-500" ? "text-[#ef4444]" : "")}>{kpi.value}</div>
+                    <div className={cn("text-[var(--text-heading)] font-medium text-[var(--text-primary)]", kpi.color === "text-red-500" ? "text-[#ef4444]" : "")}>{kpi.value}</div>
                   </div>
                 </Card>
               ))}
@@ -568,14 +589,14 @@ function App() {
                   {loading ? <Skeleton className="h-full w-full" /> : (
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={data.trends}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--color-mist)" className="opacity-50" />
-                        <XAxis dataKey="year" stroke="var(--color-iron)" className="text-[12px]" />
-                        <YAxis stroke="var(--color-iron)" className="text-[12px]" />
-                        <RechartsTooltip contentStyle={{ backgroundColor: 'var(--color-white)', borderColor: 'var(--color-mist)', borderRadius: 'var(--radius-sm)', color: 'var(--color-pure-black)' }} itemStyle={{ color: 'var(--color-pure-black)' }} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" className="opacity-50" />
+                        <XAxis dataKey="year" stroke="var(--text-secondary)" className="text-[12px]" />
+                        <YAxis stroke="var(--text-secondary)" className="text-[12px]" />
+                        <RechartsTooltip contentStyle={{ backgroundColor: 'var(--bg-glass)', borderColor: 'var(--border-color)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)' }} itemStyle={{ color: 'var(--text-primary)' }} />
                         <Legend />
-                        <Line type="monotone" dataKey="Heart Disease" stroke="var(--color-pure-black)" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
-                        <Line type="monotone" dataKey="Diabetes" stroke="var(--color-graphite)" strokeWidth={2} dot={{ r: 2 }} />
-                        <Line type="monotone" dataKey="Pneumonia" stroke="var(--color-iron)" strokeWidth={2} dot={{ r: 2 }} />
+                        <Line type="monotone" dataKey="Heart Disease" stroke="var(--text-primary)" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
+                        <Line type="monotone" dataKey="Diabetes" stroke="var(--text-secondary)" strokeWidth={2} dot={{ r: 2 }} />
+                        <Line type="monotone" dataKey="Pneumonia" stroke="var(--text-secondary)" strokeWidth={2} dot={{ r: 2 }} />
                       </LineChart>
                     </ResponsiveContainer>
                   )}
@@ -587,13 +608,13 @@ function App() {
                   {loading ? <Skeleton className="h-full w-full" /> : (
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={data.regions}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--color-mist)" className="opacity-50" vertical={false} />
-                        <XAxis dataKey="region" stroke="var(--color-iron)" className="text-[12px]" />
-                        <YAxis stroke="var(--color-iron)" className="text-[12px]" />
-                        <RechartsTooltip cursor={{fill: 'var(--color-paper)'}} contentStyle={{ backgroundColor: 'var(--color-white)', borderColor: 'var(--color-mist)', borderRadius: 'var(--radius-sm)', color: 'var(--color-pure-black)' }} itemStyle={{ color: 'var(--color-pure-black)' }} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" className="opacity-50" vertical={false} />
+                        <XAxis dataKey="region" stroke="var(--text-secondary)" className="text-[12px]" />
+                        <YAxis stroke="var(--text-secondary)" className="text-[12px]" />
+                        <RechartsTooltip cursor={{fill: 'var(--bg-secondary)'}} contentStyle={{ backgroundColor: 'var(--bg-glass)', borderColor: 'var(--border-color)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)' }} itemStyle={{ color: 'var(--text-primary)' }} />
                         <Bar dataKey="cases" radius={[4, 4, 0, 0]}>
                           {data.regions?.map((_: any, index: number) => (
-                            <Cell key={`cell-${index}`} fill={index % 2 === 0 ? 'var(--color-pure-black)' : 'var(--color-graphite)'} />
+                            <Cell key={`cell-${index}`} fill={index % 2 === 0 ? 'var(--text-primary)' : 'var(--text-secondary)'} />
                           ))}
                         </Bar>
                       </BarChart>
@@ -618,14 +639,14 @@ function App() {
             <section className="space-y-6">
               <div className="flex items-center gap-2 border-b border-border pb-2">
                 <Target className="h-6 w-6 text-primary" />
-                <h2 className="text-2xl font-semibold tracking-tight text-[var(--color-pure-black)]">AI Readmission Predictor</h2>
+                <h2 className="text-2xl font-semibold tracking-tight text-[var(--text-primary)]">AI Readmission Predictor</h2>
               </div>
               <Card>
                 <form onSubmit={handlePredict} className="space-y-[var(--spacing-16)]">
                   <div>
-                    <label className="block text-[var(--text-caption)] font-medium mb-[var(--spacing-8)] text-[var(--color-iron)] uppercase tracking-wider">Disease Category</label>
+                    <label className="block text-[var(--text-caption)] font-medium mb-[var(--spacing-8)] text-[var(--text-secondary)] uppercase tracking-wider">Disease Category</label>
                     <select 
-                      className="w-full bg-[var(--color-white)] border border-[var(--color-mist)] rounded-[var(--radius-inputs)] p-[var(--spacing-16)] text-[var(--text-body-sm)] focus:outline-none focus:border-[var(--color-pure-black)] transition-colors text-[var(--color-pure-black)]"
+                      className="w-full bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] border border-[var(--border-color)] rounded-[var(--radius-inputs)] p-[var(--spacing-16)] text-[var(--text-body-sm)] focus:outline-none focus:border-[var(--text-primary)] transition-colors text-[var(--text-primary)]"
                       value={mlForm.disease}
                       onChange={e => setMlForm({...mlForm, disease: e.target.value})}
                     >
@@ -635,9 +656,9 @@ function App() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[var(--text-caption)] font-medium mb-[var(--spacing-8)] text-[var(--color-iron)] uppercase tracking-wider">Age Band</label>
+                    <label className="block text-[var(--text-caption)] font-medium mb-[var(--spacing-8)] text-[var(--text-secondary)] uppercase tracking-wider">Age Band</label>
                     <select 
-                      className="w-full bg-[var(--color-white)] border border-[var(--color-mist)] rounded-[var(--radius-inputs)] p-[var(--spacing-16)] text-[var(--text-body-sm)] focus:outline-none focus:border-[var(--color-pure-black)] transition-colors text-[var(--color-pure-black)]"
+                      className="w-full bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] border border-[var(--border-color)] rounded-[var(--radius-inputs)] p-[var(--spacing-16)] text-[var(--text-body-sm)] focus:outline-none focus:border-[var(--text-primary)] transition-colors text-[var(--text-primary)]"
                       value={mlForm.age_band}
                       onChange={e => setMlForm({...mlForm, age_band: e.target.value})}
                     >
@@ -648,10 +669,10 @@ function App() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[var(--text-caption)] font-medium mb-[var(--spacing-8)] text-[var(--color-iron)] uppercase tracking-wider">Treatment Cost ($)</label>
+                    <label className="block text-[var(--text-caption)] font-medium mb-[var(--spacing-8)] text-[var(--text-secondary)] uppercase tracking-wider">Treatment Cost ($)</label>
                     <input 
                       type="number" 
-                      className="w-full bg-[var(--color-white)] border border-[var(--color-mist)] rounded-[var(--radius-inputs)] p-[var(--spacing-16)] text-[var(--text-body-sm)] focus:outline-none focus:border-[var(--color-pure-black)] transition-colors text-[var(--color-pure-black)]"
+                      className="w-full bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] border border-[var(--border-color)] rounded-[var(--radius-inputs)] p-[var(--spacing-16)] text-[var(--text-body-sm)] focus:outline-none focus:border-[var(--text-primary)] transition-colors text-[var(--text-primary)]"
                       value={mlForm.treatment_cost}
                       onChange={e => setMlForm({...mlForm, treatment_cost: parseInt(e.target.value)})}
                     />
@@ -659,23 +680,23 @@ function App() {
                   <button 
                     type="submit" 
                     disabled={predicting}
-                    className="w-full bg-[var(--color-pure-black)] text-[var(--color-white)] rounded-[var(--radius-buttons)] font-medium px-[var(--spacing-24)] py-[12px] mt-[var(--spacing-24)] hover:bg-[var(--color-obsidian)] transition-colors disabled:opacity-50 shadow-sm"
+                    className="w-full bg-[var(--accent-primary)] text-white rounded-[var(--radius-buttons)] font-medium px-[var(--spacing-24)] py-[12px] mt-[var(--spacing-24)] hover:opacity-90 transition-colors disabled:opacity-50 shadow-sm"
                   >
                     {predicting ? "Running Model..." : "Predict Readmission Risk"}
                   </button>
                 </form>
               </Card>
               {prediction && (
-                <Card className="flex flex-col items-center justify-center text-center p-[var(--spacing-32)] border border-[var(--color-mist)] bg-[var(--color-paper)]">
+                <Card className="flex flex-col items-center justify-center text-center p-[var(--spacing-32)] border border-[var(--border-color)] bg-[var(--bg-secondary)]">
                   <div className="animate-in zoom-in duration-300">
-                    <h3 className="text-[var(--text-caption)] font-medium text-[var(--color-iron)] uppercase tracking-wider">Prediction Result</h3>
+                    <h3 className="text-[var(--text-caption)] font-medium text-[var(--text-secondary)] uppercase tracking-wider">Prediction Result</h3>
                     <div className={cn(
                       "text-[var(--text-display)] font-bold mt-[var(--spacing-16)] mb-[var(--spacing-8)]",
                       prediction.prediction === "High Risk" ? "text-[#ef4444]" : "text-[#10b981]"
                     )}>
                       {prediction.probability}
                     </div>
-                    <div className="inline-block px-[var(--spacing-16)] py-[var(--spacing-8)] mt-[var(--spacing-16)] rounded-[var(--radius-sm)] bg-[var(--color-white)] border border-[var(--color-mist)] text-[var(--text-body-sm)] font-medium text-[var(--color-pure-black)] shadow-sm">
+                    <div className="inline-block px-[var(--spacing-16)] py-[var(--spacing-8)] mt-[var(--spacing-16)] rounded-[var(--radius-sm)] bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] border border-[var(--border-color)] text-[var(--text-body-sm)] font-medium text-[var(--text-primary)] shadow-sm">
                       {prediction.prediction}
                     </div>
                   </div>
