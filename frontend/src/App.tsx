@@ -235,15 +235,13 @@ function App() {
   const loadData = async () => {
     if (!token) return;
     setLoading(true);
-    const [kpis, trends, regions, readmissions, perf, insight] = await Promise.all([
+    const [kpis, trends, regions, readmissions] = await Promise.all([
       fetchApi('kpis'),
       fetchApi('disease-trends'),
       fetchApi('regional-burden'),
       fetchApi('readmission-rates'),
-      fetchApi('mapreduce-vs-spark'),
-      fetchApi('surprising-insight'),
     ]);
-    setData({ kpis, trends, regions, readmissions, perf, insight });
+    setData({ kpis, trends, regions, readmissions });
     setLoading(false);
   };
 

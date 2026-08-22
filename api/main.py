@@ -90,7 +90,7 @@ async def read_users_me(current_user: dict = Depends(get_current_user)):
     return {"username": current_user["username"], "full_name": current_user["full_name"]}
 
 @app.post("/api/upload")
-async def upload_dataset(file: UploadFile = File(...)):
+def upload_dataset(file: UploadFile = File(...)):
     if not file.filename.endswith('.csv'):
         raise HTTPException(status_code=400, detail="Only CSV files are allowed")
         
@@ -100,7 +100,7 @@ async def upload_dataset(file: UploadFile = File(...)):
     file_path = os.path.join(upload_dir, "custom_upload.csv")
     
     with open(file_path, "wb") as buffer:
-        content = await file.read()
+        content = file.file.read()
         buffer.write(content)
         
     # Trigger the PySpark processing script
