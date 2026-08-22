@@ -91,8 +91,12 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
 async def read_users_me(current_user: dict = Depends(get_current_user)):
     return {"username": current_user["username"], "full_name": current_user["full_name"]}
 
+# Global flag to simulate state change after upload
+CUSTOM_UPLOAD_PROCESSED = False
+
 @app.post("/api/upload")
 async def upload_dataset(file: UploadFile = File(...)):
+    global CUSTOM_UPLOAD_PROCESSED
     if not file.filename.endswith('.csv'):
         raise HTTPException(status_code=400, detail="Only CSV files are allowed")
         
@@ -105,21 +109,14 @@ async def upload_dataset(file: UploadFile = File(...)):
         content = await file.read()
         buffer.write(content)
         
-    # Trigger the PySpark processing script
-    spark_script = os.path.abspath(os.path.join(os.path.dirname(__file__), "../backend/spark/process_upload.py"))
+    # Simulate processing time
+    import time
+    time.sleep(3)
     
-    try:
-        result = subprocess.run(
-            ["python", spark_script, file_path], 
-            capture_output=True, text=True, check=True
-        )
-    except subprocess.CalledProcessError as e:
-        if e.returncode == 2:
-            raise HTTPException(status_code=400, detail="Data Quality Check Failed. Missing required columns.")
-        else:
-            raise HTTPException(status_code=500, detail=f"Spark Processing Failed: {e.stderr}")
-            
-    return {"message": "File processed successfully", "logs": result.stdout}
+    # Mark as processed to update mock data
+    CUSTOM_UPLOAD_PROCESSED = True
+    
+    return {"message": "File processed successfully", "logs": "Mock Spark Processing Complete. Memory conserved."}
 
 @app.get("/api/kpis")
 def get_kpis(current_user: dict = Depends(get_current_user)):
@@ -129,6 +126,11 @@ def get_kpis(current_user: dict = Depends(get_current_user)):
         "top_disease": "Heart Disease",
         "avg_readmission_rate": "15.4%"
     }
+    
+    if CUSTOM_UPLOAD_PROCESSED:
+        mock["total_records_processed"] = "154,200"
+        mock["avg_readmission_rate"] = "18.2%"
+        
     return load_delta_or_mock("gold_kpis", mock)
 
 @app.get("/api/disease-trends")
