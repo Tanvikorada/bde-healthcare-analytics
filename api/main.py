@@ -58,19 +58,17 @@ def load_json_or_mock(filename, mock_data):
             return mock_data
     return mock_data
 
-def load_delta_or_mock(table_name, mock_data):
-    delta_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), f"../backend/data/delta/{table_name}"))
-    try:
-        from deltalake import DeltaTable
-        dt = DeltaTable(delta_dir)
-        df = dt.to_pandas()
-        # If it's the KPIs table, return a single dict instead of a list
-        if table_name == "gold_kpis":
-            return df.to_dict(orient="records")[0]
-        return df.to_dict(orient="records")
-    except Exception as e:
-        print(f"Delta load failed for {table_name}: {e}")
-        return mock_data
+def load_json_data(table_name):
+    file_path = os.path.abspath(os.path.join(os.path.dirname(__file__), f"../backend/data/dataset/{table_name}.json"))
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Data not found. Please upload a dataset first.")
+    
+    with open(file_path, "r") as f:
+        data = json.load(f)
+        
+    if table_name == "gold_kpis" and isinstance(data, list) and len(data) > 0:
+        return data[0]
+    return data
 
 @app.post("/api/token")
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
@@ -91,12 +89,8 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
 async def read_users_me(current_user: dict = Depends(get_current_user)):
     return {"username": current_user["username"], "full_name": current_user["full_name"]}
 
-# Global flag to simulate state change after upload
-CUSTOM_UPLOAD_PROCESSED = False
-
 @app.post("/api/upload")
 async def upload_dataset(file: UploadFile = File(...)):
-    global CUSTOM_UPLOAD_PROCESSED
     if not file.filename.endswith('.csv'):
         raise HTTPException(status_code=400, detail="Only CSV files are allowed")
         
@@ -109,76 +103,37 @@ async def upload_dataset(file: UploadFile = File(...)):
         content = await file.read()
         buffer.write(content)
         
-    # Simulate processing time
-    import time
-    time.sleep(3)
+    # Trigger the PySpark processing script
+    spark_script = os.path.abspath(os.path.join(os.path.dirname(__file__), "../backend/spark/process_upload.py"))
     
-    # Mark as processed to update mock data
-    CUSTOM_UPLOAD_PROCESSED = True
-    
-    return {"message": "File processed successfully", "logs": "Mock Spark Processing Complete. Memory conserved."}
+    try:
+        result = subprocess.run(
+            ["python", spark_script, file_path], 
+            capture_output=True, text=True, check=True
+        )
+    except subprocess.CalledProcessError as e:
+        if e.returncode == 2:
+            raise HTTPException(status_code=400, detail="Data Quality Check Failed. Missing required columns.")
+        else:
+            raise HTTPException(status_code=500, detail=f"Spark Processing Failed: {e.stderr}")
+            
+    return {"message": "File processed successfully", "logs": result.stdout}
 
 @app.get("/api/kpis")
 def get_kpis(current_user: dict = Depends(get_current_user)):
-    mock = {
-        "total_records_processed": "50,000",
-        "regions_analyzed": 5,
-        "top_disease": "Heart Disease",
-        "avg_readmission_rate": "15.4%"
-    }
-    
-    if CUSTOM_UPLOAD_PROCESSED:
-        mock["total_records_processed"] = "154,200"
-        mock["avg_readmission_rate"] = "18.2%"
-        
-    return load_delta_or_mock("gold_kpis", mock)
+    return load_json_data("gold_kpis")
 
 @app.get("/api/disease-trends")
 def get_disease_trends(current_user: dict = Depends(get_current_user)):
-    mock = [
-        {"year": 2020, "Diabetes": 1200, "Heart Disease": 1350, "Pneumonia": 800},
-        {"year": 2021, "Diabetes": 1250, "Heart Disease": 1400, "Pneumonia": 750},
-        {"year": 2022, "Diabetes": 1300, "Heart Disease": 1500, "Pneumonia": 900},
-        {"year": 2023, "Diabetes": 1400, "Heart Disease": 1600, "Pneumonia": 850},
-    ]
-    if CUSTOM_UPLOAD_PROCESSED:
-        mock = [
-            {"year": 2020, "Diabetes": 1500, "Heart Disease": 1800, "Pneumonia": 1200},
-            {"year": 2021, "Diabetes": 1600, "Heart Disease": 1950, "Pneumonia": 1150},
-            {"year": 2022, "Diabetes": 1750, "Heart Disease": 2100, "Pneumonia": 1300},
-            {"year": 2023, "Diabetes": 1900, "Heart Disease": 2400, "Pneumonia": 1250},
-        ]
-    return load_delta_or_mock("gold_trends", mock)
+    return load_json_data("gold_trends")
 
 @app.get("/api/regional-burden")
 def get_regional_burden(current_user: dict = Depends(get_current_user)):
-    mock = [
-        {"region": "North", "cases": 12500},
-        {"region": "South", "cases": 14200},
-        {"region": "East", "cases": 9800},
-        {"region": "West", "cases": 11500},
-        {"region": "Midwest", "cases": 10500},
-    ]
-    if CUSTOM_UPLOAD_PROCESSED:
-        mock = [
-            {"region": "North", "cases": 18500},
-            {"region": "South", "cases": 21200},
-            {"region": "East", "cases": 15800},
-            {"region": "West", "cases": 19500},
-            {"region": "Midwest", "cases": 16500},
-        ]
-    return load_delta_or_mock("gold_regional", mock)
+    return load_json_data("gold_regional")
 
 @app.get("/api/readmission-rates")
 def get_readmission_rates(current_user: dict = Depends(get_current_user)):
-    mock = [
-        {"region": "North", "Diabetes": 0.12, "Heart Disease": 0.18},
-        {"region": "South", "Diabetes": 0.14, "Heart Disease": 0.20},
-        {"region": "East", "Diabetes": 0.11, "Heart Disease": 0.17},
-        {"region": "West", "Diabetes": 0.13, "Heart Disease": 0.19},
-        {"region": "Midwest", "Diabetes": 0.12, "Heart Disease": 0.16},
-    ]
-    return load_delta_or_mock("gold_readmission", mock)
+    return load_json_data("gold_readmissions")
 
 @app.get("/api/mapreduce-vs-spark")
 def get_performance_comparison(current_user: dict = Depends(get_current_user)):

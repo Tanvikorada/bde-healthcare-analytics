@@ -13,9 +13,7 @@ httpx
 pytest
 kafka-python
 aiokafka
-delta-spark==3.1.0
-deltalake
-pyarrow
+
 python-jose[cryptography]
 passlib[bcrypt]
 bcrypt==3.2.2
