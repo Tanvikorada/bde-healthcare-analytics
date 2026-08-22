@@ -4,6 +4,8 @@ import json
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, count, avg, round as spark_round, sum as spark_sum, desc, when
 
+os.environ["SPARK_LOCAL_IP"] = "127.0.0.1"
+
 def main():
     if len(sys.argv) != 2:
         print("Usage: python process_upload.py <path_to_csv>")
