@@ -14,8 +14,8 @@ def main():
     # Aggressively constrain memory for the free tier (512MB total environment limit)
     builder = SparkSession.builder \
         .appName("Healthcare_Batch_Processor") \
-        .config("spark.driver.memory", "256m") \
-        .config("spark.executor.memory", "256m") \
+        .config("spark.driver.memory", "480m") \
+        .config("spark.executor.memory", "480m") \
         .config("spark.sql.shuffle.partitions", "2") \
         .config("spark.driver.maxResultSize", "128m") \
         .config("spark.ui.enabled", "false")
