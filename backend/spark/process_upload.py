@@ -17,7 +17,7 @@ def main():
     builder = SparkSession.builder \
         .appName("Healthcare_Batch_Processor") \
         .config("spark.driver.memory", "256m") \
-        .config("spark.executor.memory", "256m") \
+        .config("spark.executor.memory", "480m") \
         .config("spark.testing.memory", "471859200") \
         .config("spark.driver.host", "127.0.0.1") \
         .config("spark.driver.bindAddress", "127.0.0.1") \
