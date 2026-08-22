@@ -1,6 +1,6 @@
 fastapi
 uvicorn
-pyspark
+pyspark==3.5.1
 scikit-learn
 pandas
 joblib
@@ -11,3 +11,12 @@ openai
 python-dotenv
 httpx
 pytest
+kafka-python
+aiokafka
+delta-spark==3.1.0
+deltalake
+pyarrow
+python-jose[cryptography]
+passlib[bcrypt]
+bcrypt==3.2.2
+python-multipart

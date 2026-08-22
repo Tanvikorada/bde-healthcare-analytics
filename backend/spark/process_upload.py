@@ -4,6 +4,8 @@ import json
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, count, avg, round as spark_round, sum as spark_sum, desc, when
 
+from delta import configure_spark_with_delta_pip
+
 def main():
     if len(sys.argv) != 2:
         print("Usage: python process_upload.py <path_to_csv>")
@@ -11,10 +13,12 @@ def main():
 
     csv_path = sys.argv[1]
     
-    spark = SparkSession.builder \
-        .appName("Healthcare_Upload_Processor") \
-        .getOrCreate()
+    builder = SparkSession.builder \
+        .appName("Healthcare_Lakehouse_Processor") \
+        .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") \
+        .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog")
         
+    spark = configure_spark_with_delta_pip(builder).getOrCreate()
     spark.sparkContext.setLogLevel("ERROR")
 
     print(f"Loading data from {csv_path}...")
@@ -58,18 +62,6 @@ def main():
     if time_col:
         df = df.withColumnRenamed(time_col, "time_var")
 
-    # Output directory
-    out_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../api/mock_data"))
-    os.makedirs(out_dir, exist_ok=True)
-
-    # 1. KPIs
-    total_records = df.count()
-    regions_count = df.select("region").distinct().count()
-    
-    top_disease_row = df.groupBy("disease").count().orderBy(desc("count")).first()
-    top_disease = top_disease_row["disease"] if top_disease_row else "Unknown"
-    
-    avg_target_pct = "N/A"
     if target_col:
         # Check if it's string (Yes/No) or numeric
         first_val = df.select("target").first()[0]
@@ -77,42 +69,57 @@ def main():
              df = df.withColumn("is_target", when(col("target").isin(["Yes", "True", "1"]), 1.0).otherwise(0.0))
         else:
              df = df.withColumn("is_target", col("target").cast("double"))
-             
+
+    # --- LAKEHOUSE STORAGE (Bronze & Gold Layers) ---
+    base_delta_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../backend/data/delta"))
+    
+    print("Writing Bronze Layer to Delta Lake...")
+    df.write.format("delta").mode("overwrite").save(f"{base_delta_dir}/bronze_patients")
+
+    # 1. Gold Layer: KPIs
+    total_records = df.count()
+    regions_count = df.select("region").distinct().count() if region_col else 0
+    top_disease_row = df.groupBy("disease").count().orderBy(desc("count")).first() if disease_col else None
+    top_disease = top_disease_row["disease"] if top_disease_row else "Unknown"
+    
+    avg_target_pct = "0%"
+    if target_col:
         avg_target = df.select(avg("is_target")).first()[0]
         avg_target_pct = f"{(avg_target * 100):.1f}%" if avg_target is not None else "0%"
 
-    kpis = {
+    kpis_df = spark.createDataFrame([{
         "total_records_processed": f"{total_records:,}",
         "regions_analyzed": regions_count,
         "top_disease": top_disease,
         "avg_readmission_rate": avg_target_pct
-    }
-    with open(os.path.join(out_dir, "kpis.json"), "w") as f:
-        json.dump(kpis, f)
+    }])
+    kpis_df.write.format("delta").mode("overwrite").save(f"{base_delta_dir}/gold_kpis")
 
-    # 2. Disease Trends
-    trends_df = df.groupBy("time_var").pivot("disease").count().fillna(0).orderBy("time_var")
-    trends_df = trends_df.withColumnRenamed("time_var", "year")
-    # Convert to list of dicts
-    trends_rows = trends_df.collect()
-    trends_data = [row.asDict() for row in trends_rows]
-    with open(os.path.join(out_dir, "disease_trends.json"), "w") as f:
-        json.dump(trends_data, f)
+    # 2. Gold Layer: Disease Trends
+    if time_col and disease_col:
+        trends_df = df.groupBy("time_var").pivot("disease").count().fillna(0).orderBy("time_var")
+        trends_df = trends_df.withColumnRenamed("time_var", "year")
+        # Sanitize column names for Delta Lake
+        for c in trends_df.columns:
+            sanitized = c.replace(" ", "_").replace(",", "").replace(";", "").replace("{", "").replace("}", "").replace("(", "").replace(")", "").replace("\n", "").replace("\t", "").replace("=", "")
+            trends_df = trends_df.withColumnRenamed(c, sanitized)
+        trends_df.write.format("delta").mode("overwrite").save(f"{base_delta_dir}/gold_trends")
 
-    # 3. Regional Burden
-    region_df = df.groupBy("region").count().withColumnRenamed("count", "cases")
-    region_data = [row.asDict() for row in region_df.collect()]
-    with open(os.path.join(out_dir, "regional_burden.json"), "w") as f:
-        json.dump(region_data, f)
+    # 3. Gold Layer: Regional Burden
+    if region_col:
+        region_df = df.groupBy("region").count().withColumnRenamed("count", "cases")
+        region_df.write.format("delta").mode("overwrite").save(f"{base_delta_dir}/gold_regional")
 
-    # 4. Target Rates by Region
-    if target_col:
+    # 4. Gold Layer: Target Rates by Region
+    if target_col and region_col and disease_col:
         readmission_df = df.groupBy("region").pivot("disease").agg(spark_round(avg("is_target"), 2)).fillna(0)
-        readmission_data = [row.asDict() for row in readmission_df.collect()]
-        with open(os.path.join(out_dir, "readmission_rates.json"), "w") as f:
-            json.dump(readmission_data, f)
+        # Sanitize column names for Delta Lake
+        for c in readmission_df.columns:
+            sanitized = c.replace(" ", "_").replace(",", "").replace(";", "").replace("{", "").replace("}", "").replace("(", "").replace(")", "").replace("\n", "").replace("\t", "").replace("=", "")
+            readmission_df = readmission_df.withColumnRenamed(c, sanitized)
+        readmission_df.write.format("delta").mode("overwrite").save(f"{base_delta_dir}/gold_readmission")
 
-    print("Spark Processing Complete! JSON cache updated.")
+    print("Lakehouse Processing Complete! Bronze and Gold Delta Tables updated.")
     spark.stop()
 
 if __name__ == "__main__":

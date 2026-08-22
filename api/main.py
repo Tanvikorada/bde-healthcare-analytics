@@ -11,7 +11,9 @@ from openai import AsyncOpenAI
 import joblib
 import pandas as pd
 import aiofiles
-
+from aiokafka import AIOKafkaConsumer
+from fastapi.security import OAuth2PasswordRequestForm
+from auth import create_access_token, verify_password, get_user, mock_users_db, get_current_user, ACCESS_TOKEN_EXPIRE_MINUTES, timedelta, Depends
 load_dotenv()
 
 app = FastAPI(title="Healthcare Data Analytics API")
@@ -56,6 +58,39 @@ def load_json_or_mock(filename, mock_data):
             return mock_data
     return mock_data
 
+def load_delta_or_mock(table_name, mock_data):
+    delta_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), f"../backend/data/delta/{table_name}"))
+    try:
+        from deltalake import DeltaTable
+        dt = DeltaTable(delta_dir)
+        df = dt.to_pandas()
+        # If it's the KPIs table, return a single dict instead of a list
+        if table_name == "gold_kpis":
+            return df.to_dict(orient="records")[0]
+        return df.to_dict(orient="records")
+    except Exception as e:
+        print(f"Delta load failed for {table_name}: {e}")
+        return mock_data
+
+@app.post("/api/token")
+async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
+    user = get_user(mock_users_db, form_data.username)
+    if not user or not verify_password(form_data.password, user["hashed_password"]):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user["username"]}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+
+@app.get("/api/me")
+async def read_users_me(current_user: dict = Depends(get_current_user)):
+    return {"username": current_user["username"], "full_name": current_user["full_name"]}
+
 @app.post("/api/upload")
 async def upload_dataset(file: UploadFile = File(...)):
     if not file.filename.endswith('.csv'):
@@ -87,27 +122,27 @@ async def upload_dataset(file: UploadFile = File(...)):
     return {"message": "File processed successfully", "logs": result.stdout}
 
 @app.get("/api/kpis")
-def get_kpis():
+def get_kpis(current_user: dict = Depends(get_current_user)):
     mock = {
         "total_records_processed": "50,000",
         "regions_analyzed": 5,
         "top_disease": "Heart Disease",
         "avg_readmission_rate": "15.4%"
     }
-    return load_json_or_mock("kpis.json", mock)
+    return load_delta_or_mock("gold_kpis", mock)
 
 @app.get("/api/disease-trends")
-def get_disease_trends():
+def get_disease_trends(current_user: dict = Depends(get_current_user)):
     mock = [
         {"year": 2020, "Diabetes": 1200, "Heart Disease": 1350, "Pneumonia": 800},
         {"year": 2021, "Diabetes": 1250, "Heart Disease": 1400, "Pneumonia": 750},
         {"year": 2022, "Diabetes": 1300, "Heart Disease": 1500, "Pneumonia": 900},
         {"year": 2023, "Diabetes": 1400, "Heart Disease": 1600, "Pneumonia": 850},
     ]
-    return load_json_or_mock("disease_trends.json", mock)
+    return load_delta_or_mock("gold_trends", mock)
 
 @app.get("/api/regional-burden")
-def get_regional_burden():
+def get_regional_burden(current_user: dict = Depends(get_current_user)):
     mock = [
         {"region": "North", "cases": 12500},
         {"region": "South", "cases": 14200},
@@ -115,10 +150,10 @@ def get_regional_burden():
         {"region": "West", "cases": 11500},
         {"region": "Midwest", "cases": 10500},
     ]
-    return load_json_or_mock("regional_burden.json", mock)
+    return load_delta_or_mock("gold_regional", mock)
 
 @app.get("/api/readmission-rates")
-def get_readmission_rates():
+def get_readmission_rates(current_user: dict = Depends(get_current_user)):
     mock = [
         {"region": "North", "Diabetes": 0.12, "Heart Disease": 0.18},
         {"region": "South", "Diabetes": 0.14, "Heart Disease": 0.20},
@@ -126,10 +161,10 @@ def get_readmission_rates():
         {"region": "West", "Diabetes": 0.13, "Heart Disease": 0.19},
         {"region": "Midwest", "Diabetes": 0.12, "Heart Disease": 0.16},
     ]
-    return load_json_or_mock("readmission_rates.json", mock)
+    return load_delta_or_mock("gold_readmission", mock)
 
 @app.get("/api/mapreduce-vs-spark")
-def get_performance_comparison():
+def get_performance_comparison(current_user: dict = Depends(get_current_user)):
     mock = [
         {"framework": "MapReduce (Disk I/O)", "time": 52.3},
         {"framework": "PySpark (In-Memory)", "time": 12.5}
@@ -137,7 +172,7 @@ def get_performance_comparison():
     return load_json_or_mock("performance.json", mock)
 
 @app.get("/api/surprising-insight")
-def get_surprising_insight():
+def get_surprising_insight(current_user: dict = Depends(get_current_user)):
     mock = {
         "insight_title": "Weekend Admissions Spike Readmissions",
         "description": "Patients admitted on weekends for Heart Disease have an 8% higher readmission rate than weekday admissions. This highlights potential staffing or triage discrepancies on weekends.",
@@ -156,7 +191,7 @@ class PatientData(BaseModel):
     gender: str
 
 @app.post("/api/predict")
-def predict_readmission(data: PatientData):
+def predict_readmission(data: PatientData, current_user: dict = Depends(get_current_user)):
     if not rf_model:
         return {"prediction": "Error", "probability": "0%", "factors": ["Model not trained"]}
     
@@ -197,42 +232,38 @@ def predict_readmission(data: PatientData):
 @app.websocket("/api/stream/vitals")
 async def stream_vitals(websocket: WebSocket):
     await websocket.accept()
-    print("Client connected to real log-tailing stream")
-    log_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "../backend/data/vitals.log"))
+    print("Client connected to real Kafka stream")
     
-    if not os.path.exists(log_file):
-        os.makedirs(os.path.dirname(log_file), exist_ok=True)
-        open(log_file, 'a').close()
+    consumer = AIOKafkaConsumer(
+        'icu_vitals',
+        bootstrap_servers='kafka:29092',
+        value_deserializer=lambda m: json.loads(m.decode('utf-8')),
+        auto_offset_reset='latest'
+    )
 
     try:
-        async with aiofiles.open(log_file, mode='r') as f:
-            # Seek to end to tail new lines only
-            await f.seek(0, 2)
-            while True:
-                line = await f.readline()
-                if not line:
-                    await asyncio.sleep(0.5)
-                    continue
+        await consumer.start()
+        async for msg in consumer:
+            vital_data = msg.value
+            
+            # Simple anomaly logic
+            vital_data["anomaly_detected"] = False
+            if vital_data.get("heart_rate", 0) > 120 or vital_data.get("oxygen_level", 100) < 90:
+                vital_data["anomaly_detected"] = True
                 
-                try:
-                    vital_data = json.loads(line)
-                    # Simple anomaly logic
-                    vital_data["anomaly_detected"] = False
-                    if vital_data["heart_rate"] > 120 or vital_data["oxygen_level"] < 90:
-                        vital_data["anomaly_detected"] = True
-                        
-                    await websocket.send_json(vital_data)
-                except json.JSONDecodeError:
-                    pass
+            await websocket.send_json(vital_data)
+            
     except Exception as e:
         print(f"Streaming disconnected: {e}")
+    finally:
+        await consumer.stop()
 
 # --- GEN AI LAYER: GROK CHATBOT ---
 class ChatRequest(BaseModel):
     query: str
 
-@app.post("/api/chat")
-async def chat_with_data(req: ChatRequest):
+@app.post("/api/ask-grok")
+async def ask_grok(request: ChatRequest, current_user: dict = Depends(get_current_user)):
     api_key = os.getenv("GROK_API_KEY")
     if not api_key or api_key == "your_api_key_here":
         return {"reply": "Please set your GROK_API_KEY in the backend .env file to talk to me!"}

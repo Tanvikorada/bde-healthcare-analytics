@@ -17,9 +17,18 @@ const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:8000').repla
 const WS_BASE = API_BASE.replace(/^http/, 'ws');
 
 // --- API Fetcher ---
-const fetchApi = async (endpoint: string) => {
+const fetchApi = async (endpoint: string, options: RequestInit = {}) => {
   try {
-    const response = await fetch(`${API_BASE}/api/${endpoint}`);
+    const token = localStorage.getItem('token');
+    const headers = {
+      ...options.headers,
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    };
+    const response = await fetch(`${API_BASE}/api/${endpoint}`, { ...options, headers });
+    if (response.status === 401) {
+      localStorage.removeItem('token');
+      window.location.reload();
+    }
     if (!response.ok) throw new Error('API down');
     return await response.json();
   } catch (error) {
@@ -162,19 +171,30 @@ const GrokChatbot = () => {
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim()) return;
-    
     const userMsg = input;
     setMessages(prev => [...prev, { role: 'user', content: userMsg }]);
     setInput('');
     setLoading(true);
 
     try {
-      const res = await fetch(`${API_BASE}/api/chat`, {
+      const token = localStorage.getItem('token');
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      const response = await fetch(`${API_BASE}/api/ask-grok`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ query: userMsg })
       });
-      const data = await res.json();
+      if (response.status === 401) {
+        localStorage.removeItem('token');
+        window.location.reload();
+        return;
+      }
+      const data = await response.json();
       setMessages(prev => [...prev, { role: 'assistant', content: data.reply || 'Sorry, I could not process that.' }]);
     } catch (err) {
       setMessages(prev => [...prev, { role: 'assistant', content: 'Network Error connecting to Grok API.' }]);
@@ -232,6 +252,12 @@ function App() {
   const [activeTab, setActiveTab] = useState<'batch' | 'streaming' | 'ai'>('batch');
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any>({});
+  const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
+  
+  // Login State
+  const [username, setUsername] = useState('admin');
+  const [password, setPassword] = useState('admin123');
+  const [loginError, setLoginError] = useState('');
   
   // ML Form State
   const [mlForm, setMlForm] = useState({ age_band: '61-70', disease: 'Heart Disease', gender: 'M', treatment_cost: 5000 });
@@ -244,6 +270,7 @@ function App() {
   const [uploadMessage, setUploadMessage] = useState('');
 
   const loadData = async () => {
+    if (!token) return;
     setLoading(true);
     const [kpis, trends, regions, readmissions, perf, insight] = await Promise.all([
       fetchApi('kpis'),
@@ -266,8 +293,41 @@ function App() {
   }, [darkMode]);
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (token) {
+      loadData();
+    }
+  }, [token]);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError('');
+    try {
+      const formData = new URLSearchParams();
+      formData.append('username', username);
+      formData.append('password', password);
+      
+      const response = await fetch(`${API_BASE}/api/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        throw new Error('Invalid credentials');
+      }
+      
+      const data = await response.json();
+      localStorage.setItem('token', data.access_token);
+      setToken(data.access_token);
+    } catch (err) {
+      setLoginError('Invalid username or password');
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    setToken(null);
+  };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -281,10 +341,18 @@ function App() {
     formData.append('file', file);
     
     try {
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
       const res = await fetch(`${API_BASE}/api/upload`, {
         method: 'POST',
+        headers,
         body: formData
       });
+      if (res.status === 401) {
+        handleLogout();
+        return;
+      }
       const result = await res.json();
       
       if (res.ok) {
@@ -306,14 +374,25 @@ function App() {
     e.preventDefault();
     setPredicting(true);
     try {
+      const token = localStorage.getItem('token');
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
       const res = await fetch(`${API_BASE}/api/predict`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(mlForm)
       });
-      if (res.ok) {
-        setPrediction(await res.json());
+      if (res.status === 401) {
+        localStorage.removeItem('token');
+        window.location.reload();
+        return;
       }
+      const data = await res.json();
+      setPrediction(data);
     } catch (err) {
       // Mock fallback if backend is down
       const baseRisk = mlForm.disease === 'Heart Disease' ? 0.35 : 0.15;
@@ -329,12 +408,95 @@ function App() {
     setPredicting(false);
   };
 
+  if (!token) {
+    return (
+      <div className={cn("min-h-screen font-sans antialiased bg-background text-foreground flex flex-col items-center justify-center", darkMode ? "dark" : "")}>
+        <div className="absolute inset-0 bg-grid-white/[0.02] bg-[size:50px_50px]" />
+        <div className="absolute inset-0 flex items-center justify-center bg-background [mask-image:radial-gradient(ellipse_at_center,transparent_20%,black)]" />
+        
+        <Card className="w-full max-w-md relative z-10 p-8 space-y-6">
+          <div className="text-center">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/20 text-primary mb-4">
+              <Activity className="h-8 w-8" />
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight">Enterprise Login</h1>
+            <p className="text-muted-foreground mt-2">Secure access to BDE Healthcare Analytics</p>
+          </div>
+          
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1 text-muted-foreground">Username</label>
+              <input 
+                type="text" 
+                value={username}
+                onChange={e => setUsername(e.target.value)}
+                className="w-full bg-background border border-border rounded-md p-2 focus:ring-1 focus:ring-primary focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1 text-muted-foreground">Password</label>
+              <input 
+                type="password" 
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                className="w-full bg-background border border-border rounded-md p-2 focus:ring-1 focus:ring-primary focus:outline-none"
+              />
+            </div>
+            {loginError && <p className="text-red-500 text-sm font-medium">{loginError}</p>}
+            <button 
+              type="submit" 
+              className="w-full bg-primary text-primary-foreground font-semibold py-2 rounded-md hover:bg-primary/90 transition-colors"
+            >
+              Sign In
+            </button>
+          </form>
+          <div className="text-center text-xs text-muted-foreground">
+            Default credentials: admin / admin123
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className={cn("min-h-screen flex items-center justify-center bg-background text-foreground", darkMode ? "dark" : "")}>
+        <div className="animate-pulse flex flex-col items-center gap-4">
+          <Activity className="h-12 w-12 text-primary animate-bounce" />
+          <p className="text-xl font-medium tracking-tight">Initializing Enterprise Analytics Lakehouse...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="dark min-h-screen bg-background text-foreground transition-colors duration-300 font-sans selection:bg-primary/30 relative overflow-hidden">
-      {/* Dynamic Background Gradients */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-primary/20 blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-accent/20 blur-[120px] pointer-events-none" />
-      <div className="relative z-10">
+    <div className={cn("min-h-screen font-sans antialiased bg-background text-foreground selection:bg-primary/30", darkMode ? "dark" : "")}>
+      {/* Background Effects */}
+      <div className="fixed inset-0 z-0 bg-grid-white/[0.02] bg-[size:50px_50px] pointer-events-none" />
+      <div className="fixed inset-0 z-0 flex items-center justify-center bg-background [mask-image:radial-gradient(ellipse_at_center,transparent_20%,black)] pointer-events-none" />
+      
+      <div className="relative z-10 max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header */}
+        <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-12 animate-in slide-in-from-top-4 duration-500">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-primary/20 rounded-xl">
+              <Activity className="h-8 w-8 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">BDE Healthcare Analytics</h1>
+              <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider mt-1">Enterprise Lakehouse Platform</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={handleLogout}
+              className="px-4 py-2 text-sm font-medium text-red-500 bg-red-500/10 rounded-full hover:bg-red-500/20 transition-colors"
+            >
+              Sign Out
+            </button>
+          </div>
+        </header>
+
       <nav className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
