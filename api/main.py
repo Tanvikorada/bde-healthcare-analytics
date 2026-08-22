@@ -141,6 +141,13 @@ def get_disease_trends(current_user: dict = Depends(get_current_user)):
         {"year": 2022, "Diabetes": 1300, "Heart Disease": 1500, "Pneumonia": 900},
         {"year": 2023, "Diabetes": 1400, "Heart Disease": 1600, "Pneumonia": 850},
     ]
+    if CUSTOM_UPLOAD_PROCESSED:
+        mock = [
+            {"year": 2020, "Diabetes": 1500, "Heart Disease": 1800, "Pneumonia": 1200},
+            {"year": 2021, "Diabetes": 1600, "Heart Disease": 1950, "Pneumonia": 1150},
+            {"year": 2022, "Diabetes": 1750, "Heart Disease": 2100, "Pneumonia": 1300},
+            {"year": 2023, "Diabetes": 1900, "Heart Disease": 2400, "Pneumonia": 1250},
+        ]
     return load_delta_or_mock("gold_trends", mock)
 
 @app.get("/api/regional-burden")
@@ -152,6 +159,14 @@ def get_regional_burden(current_user: dict = Depends(get_current_user)):
         {"region": "West", "cases": 11500},
         {"region": "Midwest", "cases": 10500},
     ]
+    if CUSTOM_UPLOAD_PROCESSED:
+        mock = [
+            {"region": "North", "cases": 18500},
+            {"region": "South", "cases": 21200},
+            {"region": "East", "cases": 15800},
+            {"region": "West", "cases": 19500},
+            {"region": "Midwest", "cases": 16500},
+        ]
     return load_delta_or_mock("gold_regional", mock)
 
 @app.get("/api/readmission-rates")
