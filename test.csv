@@ -1,0 +1,3 @@
+patient_id,age_band,disease,gender,treatment_cost,readmitted
+1,51-60,Heart Disease,Male,15000,Yes
+2,41-50,Diabetes,Female,5000,No
