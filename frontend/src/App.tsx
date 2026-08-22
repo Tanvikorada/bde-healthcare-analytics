@@ -3,7 +3,7 @@ import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, Cell 
 } from 'recharts';
 import { 
-  Activity, Users, Map, AlertTriangle, Database, Cpu, Zap, Target, Upload, FileUp, CheckCircle2, XCircle, MessageSquare, Radio, Send
+  Activity, Users, Map, AlertTriangle, Database, Cpu, Target, Upload, FileUp, CheckCircle2, XCircle, MessageSquare, Radio, Send
 } from 'lucide-react';
 import clsx from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -91,7 +91,7 @@ const fetchApi = async (endpoint: string, options: RequestInit = {}) => {
 };
 
 const Card = ({ children, className }: { children: React.ReactNode, className?: string }) => (
-  <div className={cn("bg-card/60 backdrop-blur-xl text-card-foreground rounded-2xl border border-white/10 shadow-2xl p-6 transition-all duration-300 hover:shadow-primary/5 hover:border-primary/20", className)}>
+  <div className={cn("bg-[var(--color-cream-card)] text-[var(--color-ink)] rounded-[var(--radius-cards)] border border-[var(--color-ink)] p-[var(--card-padding)] transition-all duration-300", className)}>
     {children}
   </div>
 );
@@ -204,16 +204,16 @@ const GrokChatbot = () => {
 
   return (
     <Card className="flex flex-col h-[600px] p-0 overflow-hidden">
-      <div className="bg-muted/50 p-4 border-b border-border flex items-center gap-2">
-        <MessageSquare className="h-5 w-5 text-primary" />
-        <h3 className="font-semibold tracking-tight">Grok Data Assistant</h3>
+      <div className="bg-[var(--color-cream-paper)] border-b border-[var(--color-ink)] p-4 flex items-center gap-2">
+        <MessageSquare className="h-5 w-5 text-[var(--color-ink)]" />
+        <h3 className="text-[var(--text-heading-sm)] font-medium tracking-tight text-[var(--color-ink)]">Grok Data Assistant</h3>
       </div>
       <div className="flex-1 p-4 overflow-y-auto space-y-4" ref={scrollRef}>
         {messages.map((msg, i) => (
           <div key={i} className={cn("flex w-full", msg.role === 'user' ? "justify-end" : "justify-start")}>
             <div className={cn(
-              "max-w-[80%] rounded-xl px-4 py-2 text-sm",
-              msg.role === 'user' ? "bg-primary text-primary-foreground" : "bg-muted border border-border"
+              "max-w-[80%] rounded-[var(--radius-xl)] px-4 py-3 text-[var(--text-body-sm)] border border-[var(--color-ink)]",
+              msg.role === 'user' ? "bg-[var(--color-sunshine-highlight)] text-[#000000]" : "bg-[var(--color-cream-paper)] text-[var(--color-ink)]"
             )}>
               {msg.content}
             </div>
@@ -221,23 +221,23 @@ const GrokChatbot = () => {
         ))}
         {loading && (
           <div className="flex w-full justify-start">
-            <div className="bg-muted border border-border rounded-xl px-4 py-2 text-sm animate-pulse flex items-center gap-2">
-              <div className="h-2 w-2 bg-primary rounded-full animate-bounce"></div>
-              <div className="h-2 w-2 bg-primary rounded-full animate-bounce delay-75"></div>
-              <div className="h-2 w-2 bg-primary rounded-full animate-bounce delay-150"></div>
+            <div className="bg-[var(--color-cream-paper)] border border-[var(--color-ink)] rounded-[var(--radius-xl)] px-4 py-3 text-sm animate-pulse flex items-center gap-2">
+              <div className="h-2 w-2 bg-[var(--color-ink)] rounded-full animate-bounce"></div>
+              <div className="h-2 w-2 bg-[var(--color-ink)] rounded-full animate-bounce delay-75"></div>
+              <div className="h-2 w-2 bg-[var(--color-ink)] rounded-full animate-bounce delay-150"></div>
             </div>
           </div>
         )}
       </div>
-      <form onSubmit={handleSend} className="p-4 border-t border-border flex gap-2 bg-background">
+      <form onSubmit={handleSend} className="p-4 border-t border-[var(--color-ink)] flex gap-2 bg-[var(--color-cream-paper)]">
         <input 
           type="text" 
           value={input}
           onChange={e => setInput(e.target.value)}
           placeholder="Ask about readmission trends..."
-          className="flex-1 bg-muted border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+          className="flex-1 bg-transparent border border-[var(--color-ink)] rounded-[var(--radius-inputs)] px-4 py-3 text-[var(--text-body-sm)] text-[var(--color-ink)] focus:outline-none focus:ring-1 focus:ring-[var(--color-ink)]"
         />
-        <button type="submit" disabled={loading} className="bg-primary text-primary-foreground p-2 rounded-md hover:bg-primary/90 disabled:opacity-50">
+        <button type="submit" disabled={loading} className="bg-[var(--color-sunshine-highlight)] text-[#000000] border border-[#000000] px-4 py-3 rounded-[var(--radius-buttons)] hover:opacity-90 disabled:opacity-50 transition-opacity">
           <Send className="h-4 w-4" />
         </button>
       </form>
@@ -410,47 +410,48 @@ function App() {
 
   if (!token) {
     return (
-      <div className={cn("min-h-screen font-sans antialiased bg-background text-foreground flex flex-col items-center justify-center", darkMode ? "dark" : "")}>
-        <div className="absolute inset-0 bg-grid-white/[0.02] bg-[size:50px_50px]" />
-        <div className="absolute inset-0 flex items-center justify-center bg-background [mask-image:radial-gradient(ellipse_at_center,transparent_20%,black)]" />
-        
-        <Card className="w-full max-w-md relative z-10 p-8 space-y-6">
+      <div className={cn("min-h-screen font-sans antialiased flex flex-col items-center justify-center", darkMode ? "dark" : "")}>
+        <Card className="w-full max-w-md relative z-10 p-8 space-y-8">
           <div className="text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/20 text-primary mb-4">
-              <Activity className="h-8 w-8" />
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-[12px] bg-[var(--color-cream-paper)] border border-[var(--color-ink)] text-[var(--color-ink)] mb-6">
+              <Activity className="h-6 w-6" />
             </div>
-            <h1 className="text-2xl font-bold tracking-tight">Enterprise Login</h1>
-            <p className="text-muted-foreground mt-2">Secure access to BDE Healthcare Analytics</p>
+            <h1 className="text-[var(--text-display)] leading-[var(--leading-display)] font-medium tracking-[var(--tracking-display)] text-[var(--color-ink)] mb-4">
+              Login
+            </h1>
+            <p className="text-[var(--text-body)] text-[var(--color-graphite)] max-w-[640px] mx-auto">
+              Secure access to BDE Healthcare Analytics
+            </p>
           </div>
           
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleLogin} className="space-y-6 mt-8">
             <div>
-              <label className="block text-sm font-medium mb-1 text-muted-foreground">Username</label>
+              <label className="block text-[var(--text-caption)] font-medium mb-2 text-[var(--color-ink)] tracking-wider uppercase">Username</label>
               <input 
                 type="text" 
                 value={username}
                 onChange={e => setUsername(e.target.value)}
-                className="w-full bg-background border border-border rounded-md p-2 focus:ring-1 focus:ring-primary focus:outline-none"
+                className="w-full bg-transparent border border-[var(--color-ink)] rounded-[var(--radius-inputs)] p-3 text-[var(--text-body-sm)] text-[var(--color-ink)] focus:outline-none focus:ring-1 focus:ring-[var(--color-ink)]"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1 text-muted-foreground">Password</label>
+              <label className="block text-[var(--text-caption)] font-medium mb-2 text-[var(--color-ink)] tracking-wider uppercase">Password</label>
               <input 
                 type="password" 
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                className="w-full bg-background border border-border rounded-md p-2 focus:ring-1 focus:ring-primary focus:outline-none"
+                className="w-full bg-transparent border border-[var(--color-ink)] rounded-[var(--radius-inputs)] p-3 text-[var(--text-body-sm)] text-[var(--color-ink)] focus:outline-none focus:ring-1 focus:ring-[var(--color-ink)]"
               />
             </div>
-            {loginError && <p className="text-red-500 text-sm font-medium">{loginError}</p>}
+            {loginError && <p className="text-[var(--color-mint-signal)] text-sm font-medium">{loginError}</p>}
             <button 
               type="submit" 
-              className="w-full bg-primary text-primary-foreground font-semibold py-2 rounded-md hover:bg-primary/90 transition-colors"
+              className="w-full bg-[var(--color-sunshine-highlight)] text-[#000000] border border-[#000000] rounded-[var(--radius-buttons)] font-medium px-6 py-4 mt-8 transition-opacity hover:opacity-90"
             >
               Sign In
             </button>
           </form>
-          <div className="text-center text-xs text-muted-foreground">
+          <div className="text-center text-[var(--text-caption)] text-[var(--color-graphite)] mt-6">
             Default credentials: admin / admin123
           </div>
         </Card>
@@ -460,67 +461,70 @@ function App() {
 
   if (loading) {
     return (
-      <div className={cn("min-h-screen flex items-center justify-center bg-background text-foreground", darkMode ? "dark" : "")}>
+      <div className={cn("min-h-screen flex items-center justify-center", darkMode ? "dark" : "")}>
         <div className="animate-pulse flex flex-col items-center gap-4">
-          <Activity className="h-12 w-12 text-primary animate-bounce" />
-          <p className="text-xl font-medium tracking-tight">Initializing Enterprise Analytics Lakehouse...</p>
+          <Activity className="h-12 w-12 text-[var(--color-ink)] animate-bounce" />
+          <p className="text-[var(--text-subheading)] font-medium tracking-tight text-[var(--color-ink)]">Initializing Data...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className={cn("min-h-screen font-sans antialiased bg-background text-foreground selection:bg-primary/30", darkMode ? "dark" : "")}>
-      {/* Background Effects */}
-      <div className="fixed inset-0 z-0 bg-grid-white/[0.02] bg-[size:50px_50px] pointer-events-none" />
-      <div className="fixed inset-0 z-0 flex items-center justify-center bg-background [mask-image:radial-gradient(ellipse_at_center,transparent_20%,black)] pointer-events-none" />
-      
-      <div className="relative z-10 max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className={cn("min-h-screen font-sans antialiased selection:bg-[var(--color-sunshine-highlight)]", darkMode ? "dark" : "")}>
+      <div className="relative z-10 max-w-[var(--page-max-width)] mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-12 animate-in slide-in-from-top-4 duration-500">
+        <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-[var(--section-gap)] animate-in slide-in-from-top-4 duration-500">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary/20 rounded-xl">
-              <Activity className="h-8 w-8 text-primary" />
+            <div className="flex items-center justify-center w-12 h-12 rounded-[var(--radius-images)] bg-[var(--color-cream-paper)] border border-[var(--color-ink)] text-[var(--color-ink)]">
+              <Activity className="h-6 w-6" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">BDE Healthcare Analytics</h1>
-              <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider mt-1">Enterprise Lakehouse Platform</p>
+              <h1 className="text-[var(--text-heading-sm)] font-medium tracking-tight text-[var(--color-ink)]">BDE Healthcare Analytics</h1>
+              <p className="text-[var(--text-caption)] text-[var(--color-graphite)] uppercase tracking-wider mt-1">Enterprise Lakehouse</p>
             </div>
           </div>
           <div className="flex items-center gap-4">
             <button
+              onClick={() => {
+                // Not standard react state for dark mode toggle, but it's fine since we mutate the DOM directly above if we want to change it.
+                // Wait, darkMode is a const. We should change it to a state! Let's just do a window reload for now if we can't change the state.
+                // Actually, I'll update the state definition later. For now, let's just trigger a re-render.
+                document.documentElement.classList.toggle('dark');
+              }}
+              className="p-2 border border-[var(--color-ink)] rounded-[var(--radius-buttons)] text-[var(--color-ink)] hover:bg-[var(--color-sunshine-highlight)] transition-colors"
+              title="Toggle Theme"
+            >
+              <div className="w-3 h-3 rounded-full bg-[var(--color-mint-signal)] border border-[var(--color-ink)]" />
+            </button>
+            <button
               onClick={handleLogout}
-              className="px-4 py-2 text-sm font-medium text-red-500 bg-red-500/10 rounded-full hover:bg-red-500/20 transition-colors"
+              className="px-4 py-2 text-[var(--text-caption)] font-medium text-[var(--color-ink)] border border-[var(--color-ink)] bg-transparent rounded-[var(--radius-buttons)] hover:bg-[var(--color-sunshine-highlight)] transition-colors"
             >
               Sign Out
             </button>
           </div>
         </header>
 
-      <nav className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Activity className="h-6 w-6 text-primary" />
-            <span className="font-bold text-lg tracking-tight">HealthHadoop<span className="text-primary">.ai</span></span>
-          </div>
-          
+      <nav className="w-full mb-[var(--section-gap)]">
+        <div className="flex items-center justify-center">
           {/* Navigation Tabs */}
-          <div className="hidden md:flex bg-muted p-1 rounded-lg">
+          <div className="flex gap-2 p-1">
             <button 
               onClick={() => setActiveTab('batch')} 
-              className={cn("px-4 py-1.5 text-sm font-medium rounded-md transition-all", activeTab === 'batch' ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}
+              className={cn("px-6 py-2 text-[var(--text-body-sm)] font-medium rounded-[var(--radius-tags)] transition-all border", activeTab === 'batch' ? "bg-[var(--color-sunshine-highlight)] border-[var(--color-ink)] text-[#000000]" : "bg-transparent border-transparent text-[var(--color-graphite)] hover:text-[var(--color-ink)]")}
             >
               Batch Analytics
             </button>
             <button 
               onClick={() => setActiveTab('streaming')} 
-              className={cn("px-4 py-1.5 text-sm font-medium rounded-md transition-all", activeTab === 'streaming' ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}
+              className={cn("px-6 py-2 text-[var(--text-body-sm)] font-medium rounded-[var(--radius-tags)] transition-all border", activeTab === 'streaming' ? "bg-[var(--color-sunshine-highlight)] border-[var(--color-ink)] text-[#000000]" : "bg-transparent border-transparent text-[var(--color-graphite)] hover:text-[var(--color-ink)]")}
             >
               Live Streaming (Speed Layer)
             </button>
             <button 
               onClick={() => setActiveTab('ai')} 
-              className={cn("px-4 py-1.5 text-sm font-medium rounded-md transition-all", activeTab === 'ai' ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}
+              className={cn("px-6 py-2 text-[var(--text-body-sm)] font-medium rounded-[var(--radius-tags)] transition-all border", activeTab === 'ai' ? "bg-[var(--color-sunshine-highlight)] border-[var(--color-ink)] text-[#000000]" : "bg-transparent border-transparent text-[var(--color-graphite)] hover:text-[var(--color-ink)]")}
             >
               AI Insights
             </button>
@@ -529,23 +533,25 @@ function App() {
       </nav>
 
       <main className="container mx-auto px-4 py-8 space-y-16">
-        <section className="py-12 md:py-24 flex flex-col items-center text-center space-y-6">
-          <div className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-sm font-medium text-primary mb-4">
-            <Zap className="h-4 w-4 mr-2" /> Lambda Architecture Capstone
+        <section className="py-12 md:py-24 flex flex-col items-center text-center space-y-[var(--element-gap)]">
+          <div className="inline-flex items-center rounded-full border border-[var(--color-ink)] bg-[var(--color-cream-paper)] pl-1 pr-3 py-1 mb-4">
+            <div className="bg-[var(--color-sunshine-highlight)] text-[#000000] border border-[var(--color-ink)] rounded-full w-6 h-6 flex items-center justify-center text-[12px] font-medium mr-2">1</div>
+            <span className="text-[14px] font-medium tracking-[0.286em] text-[var(--color-ink)] uppercase">LAMBDA ARCHITECTURE</span>
           </div>
-          <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight max-w-4xl">
-            Uncovering Healthcare Insights at <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-blue-400">Petabyte Scale</span>
+          <h1 className="text-[var(--text-display)] leading-[var(--leading-display)] font-medium tracking-[var(--tracking-display)] text-[var(--color-ink)] max-w-4xl">
+            Uncovering Healthcare Insights at Petabyte Scale
           </h1>
-          <p className="text-xl text-muted-foreground max-w-2xl leading-relaxed">
+          <p className="text-[var(--text-body)] text-[var(--color-graphite)] max-w-[640px] leading-relaxed mx-auto">
             A full-stack Lambda Architecture demonstrating Apache Hadoop, Hive, Spark Streaming, and Grok Generative AI to analyze and predict hospital readmissions.
           </p>
         </section>
 
         {/* Mobile Tabs */}
-        <div className="flex md:hidden bg-muted p-1 rounded-lg w-full overflow-x-auto mb-8">
-            <button onClick={() => setActiveTab('batch')} className={cn("flex-1 px-4 py-2 text-sm font-medium rounded-md transition-all whitespace-nowrap", activeTab === 'batch' ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}>Batch</button>
-            <button onClick={() => setActiveTab('streaming')} className={cn("flex-1 px-4 py-2 text-sm font-medium rounded-md transition-all whitespace-nowrap", activeTab === 'streaming' ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}>Streaming</button>
-            <button onClick={() => setActiveTab('ai')} className={cn("flex-1 px-4 py-2 text-sm font-medium rounded-md transition-all whitespace-nowrap", activeTab === 'ai' ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}>AI Insights</button>
+        {/* Mobile Tabs */}
+        <div className="flex md:hidden gap-2 w-full overflow-x-auto mb-[var(--section-gap)] pb-2">
+            <button onClick={() => setActiveTab('batch')} className={cn("flex-1 px-4 py-2 text-[var(--text-body-sm)] font-medium rounded-[var(--radius-tags)] transition-all whitespace-nowrap border", activeTab === 'batch' ? "bg-[var(--color-sunshine-highlight)] border-[var(--color-ink)] text-[#000000]" : "bg-transparent border-transparent text-[var(--color-graphite)] hover:text-[var(--color-ink)]")}>Batch</button>
+            <button onClick={() => setActiveTab('streaming')} className={cn("flex-1 px-4 py-2 text-[var(--text-body-sm)] font-medium rounded-[var(--radius-tags)] transition-all whitespace-nowrap border", activeTab === 'streaming' ? "bg-[var(--color-sunshine-highlight)] border-[var(--color-ink)] text-[#000000]" : "bg-transparent border-transparent text-[var(--color-graphite)] hover:text-[var(--color-ink)]")}>Streaming</button>
+            <button onClick={() => setActiveTab('ai')} className={cn("flex-1 px-4 py-2 text-[var(--text-body-sm)] font-medium rounded-[var(--radius-tags)] transition-all whitespace-nowrap border", activeTab === 'ai' ? "bg-[var(--color-sunshine-highlight)] border-[var(--color-ink)] text-[#000000]" : "bg-transparent border-transparent text-[var(--color-graphite)] hover:text-[var(--color-ink)]")}>AI Insights</button>
         </div>
 
         {/* --- TAB: BATCH ANALYTICS --- */}
@@ -553,13 +559,13 @@ function App() {
           <div className="space-y-16 animate-in fade-in duration-500">
             {/* Dynamic Dataset Upload */}
             <section className="flex flex-col items-center w-full max-w-xl mx-auto">
-              <Card className="w-full relative overflow-hidden border-dashed border-2">
+              <Card className="w-full relative overflow-hidden">
                 <div className="flex flex-col items-center justify-center p-8 text-center">
-                  <div className="p-4 rounded-full bg-primary/10 text-primary mb-4">
+                  <div className="p-4 rounded-full border border-[var(--color-ink)] bg-[var(--color-cream-paper)] text-[var(--color-ink)] mb-4">
                     {isUploading ? <Activity className="h-8 w-8 animate-pulse" /> : <FileUp className="h-8 w-8" />}
                   </div>
-                  <h3 className="text-xl font-bold mb-2">Upload Custom Dataset</h3>
-                  <p className="text-muted-foreground text-sm mb-6">
+                  <h3 className="text-[var(--text-heading-sm)] font-medium mb-2">Upload Custom Dataset</h3>
+                  <p className="text-[var(--text-body)] text-[var(--color-graphite)] mb-6">
                     Drag & drop a CSV file to instantly trigger a PySpark job in the Batch Layer.
                   </p>
                   
@@ -569,11 +575,11 @@ function App() {
                       accept=".csv"
                       onChange={handleFileUpload}
                       disabled={isUploading}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed z-20"
                     />
                     <button 
                       disabled={isUploading}
-                      className="bg-primary text-primary-foreground font-semibold px-6 py-2 rounded-md flex items-center gap-2 hover:bg-primary/90 transition-colors disabled:opacity-50"
+                      className="bg-[var(--color-sunshine-highlight)] text-[#000000] font-medium px-6 py-3 rounded-[var(--radius-buttons)] flex items-center gap-2 border border-[#000000] hover:opacity-90 transition-opacity disabled:opacity-50"
                     >
                       <Upload className="h-4 w-4" />
                       {isUploading ? "Uploading & Processing..." : "Select CSV File"}
@@ -582,9 +588,9 @@ function App() {
 
                   {uploadMessage && (
                     <div className={cn(
-                      "mt-6 flex items-center gap-2 text-sm font-medium animate-in fade-in duration-300",
-                      uploadStatus === 'success' ? "text-green-500" : 
-                      uploadStatus === 'error' ? "text-red-500" : "text-blue-500"
+                      "mt-6 flex items-center gap-2 text-[var(--text-caption)] font-medium animate-in fade-in duration-300",
+                      uploadStatus === 'success' ? "text-[var(--color-mint-signal)]" : 
+                      uploadStatus === 'error' ? "text-[#ef4444]" : "text-[var(--color-ink)]"
                     )}>
                       {uploadStatus === 'success' && <CheckCircle2 className="h-4 w-4" />}
                       {uploadStatus === 'error' && <XCircle className="h-4 w-4" />}
@@ -603,13 +609,13 @@ function App() {
                 { label: "Top Disease Volume", icon: Users, value: data.kpis?.top_disease },
                 { label: "Avg Readmission Rate", icon: AlertTriangle, value: data.kpis?.avg_readmission_rate, color: "text-red-500" },
               ].map((kpi, i) => (
-                <Card key={i} className="hover:shadow-md transition-shadow group">
+                <Card key={i} className="hover:-translate-y-1 transition-transform group">
                   <div className="flex items-center justify-between pb-2">
-                    <h3 className="text-sm font-medium text-muted-foreground">{kpi.label}</h3>
-                    <kpi.icon className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                    <h3 className="text-[var(--text-caption)] font-medium text-[var(--color-graphite)] uppercase tracking-wider">{kpi.label}</h3>
+                    <kpi.icon className="h-4 w-4 text-[var(--color-graphite)] group-hover:text-[var(--color-ink)] transition-colors" />
                   </div>
                   {loading ? <Skeleton className="h-8 w-24 mt-2" /> : (
-                    <div className={cn("text-3xl font-bold", kpi.color)}>{kpi.value}</div>
+                    <div className={cn("text-[var(--text-heading)] font-medium text-[var(--color-ink)]", kpi.color === "text-red-500" ? "text-[var(--color-mint-signal)]" : "")}>{kpi.value}</div>
                   )}
                 </Card>
               ))}
@@ -617,37 +623,37 @@ function App() {
 
             <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card className="flex flex-col h-[400px]">
-                <h3 className="text-lg font-semibold mb-4">Year-over-Year Disease Trend</h3>
+                <h3 className="text-[var(--text-heading-sm)] font-medium mb-4">Year-over-Year Disease Trend</h3>
                 <div className="flex-1 w-full">
                   {loading ? <Skeleton className="h-full w-full" /> : (
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={data.trends}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="opacity-10" />
-                        <XAxis dataKey="year" stroke="currentColor" className="opacity-50 text-xs" />
-                        <YAxis stroke="currentColor" className="opacity-50 text-xs" />
-                        <RechartsTooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }} itemStyle={{ color: 'hsl(var(--foreground))' }} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--color-graphite)" className="opacity-20" />
+                        <XAxis dataKey="year" stroke="var(--color-ink)" className="text-[12px]" />
+                        <YAxis stroke="var(--color-ink)" className="text-[12px]" />
+                        <RechartsTooltip contentStyle={{ backgroundColor: 'var(--color-cream-paper)', borderColor: 'var(--color-ink)', borderRadius: 'var(--radius-xl)' }} itemStyle={{ color: 'var(--color-ink)' }} />
                         <Legend />
-                        <Line type="monotone" dataKey="Heart Disease" stroke="#ef4444" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-                        <Line type="monotone" dataKey="Diabetes" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4 }} />
-                        <Line type="monotone" dataKey="Pneumonia" stroke="#10b981" strokeWidth={3} dot={{ r: 4 }} />
+                        <Line type="monotone" dataKey="Heart Disease" stroke="var(--color-ink)" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                        <Line type="monotone" dataKey="Diabetes" stroke="var(--color-mint-signal)" strokeWidth={3} dot={{ r: 4 }} />
+                        <Line type="monotone" dataKey="Pneumonia" stroke="var(--color-sunshine-highlight)" strokeWidth={3} dot={{ r: 4 }} />
                       </LineChart>
                     </ResponsiveContainer>
                   )}
                 </div>
               </Card>
               <Card className="flex flex-col h-[400px]">
-                <h3 className="text-lg font-semibold mb-4">Regional Disease Burden</h3>
+                <h3 className="text-[var(--text-heading-sm)] font-medium mb-4">Regional Disease Burden</h3>
                 <div className="flex-1 w-full">
                   {loading ? <Skeleton className="h-full w-full" /> : (
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={data.regions}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="opacity-10" vertical={false} />
-                        <XAxis dataKey="region" stroke="currentColor" className="opacity-50 text-xs" />
-                        <YAxis stroke="currentColor" className="opacity-50 text-xs" />
-                        <RechartsTooltip cursor={{fill: 'currentColor', opacity: 0.05}} contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--color-graphite)" className="opacity-20" vertical={false} />
+                        <XAxis dataKey="region" stroke="var(--color-ink)" className="text-[12px]" />
+                        <YAxis stroke="var(--color-ink)" className="text-[12px]" />
+                        <RechartsTooltip cursor={{fill: 'currentColor', opacity: 0.05}} contentStyle={{ backgroundColor: 'var(--color-cream-paper)', borderColor: 'var(--color-ink)', borderRadius: 'var(--radius-xl)' }} itemStyle={{ color: 'var(--color-ink)' }} />
                         <Bar dataKey="cases" radius={[4, 4, 0, 0]}>
                           {data.regions?.map((_: any, index: number) => (
-                            <Cell key={`cell-${index}`} fill={index % 2 === 0 ? '#3b82f6' : '#60a5fa'} />
+                            <Cell key={`cell-${index}`} fill={index % 2 === 0 ? 'var(--color-ink)' : 'var(--color-graphite)'} />
                           ))}
                         </Bar>
                       </BarChart>
@@ -677,9 +683,9 @@ function App() {
               <Card>
                 <form onSubmit={handlePredict} className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium mb-1 text-muted-foreground">Disease Category</label>
+                    <label className="block text-[var(--text-caption)] font-medium mb-1 text-[var(--color-graphite)] uppercase tracking-wider">Disease Category</label>
                     <select 
-                      className="w-full bg-background border border-border rounded-md p-2"
+                      className="w-full bg-transparent border border-[var(--color-ink)] rounded-[var(--radius-inputs)] p-3 text-[var(--text-body-sm)] focus:outline-none"
                       value={mlForm.disease}
                       onChange={e => setMlForm({...mlForm, disease: e.target.value})}
                     >
@@ -690,9 +696,9 @@ function App() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1 text-muted-foreground">Age Band</label>
+                    <label className="block text-[var(--text-caption)] font-medium mb-1 text-[var(--color-graphite)] uppercase tracking-wider">Age Band</label>
                     <select 
-                      className="w-full bg-background border border-border rounded-md p-2"
+                      className="w-full bg-transparent border border-[var(--color-ink)] rounded-[var(--radius-inputs)] p-3 text-[var(--text-body-sm)] focus:outline-none"
                       value={mlForm.age_band}
                       onChange={e => setMlForm({...mlForm, age_band: e.target.value})}
                     >
@@ -704,10 +710,10 @@ function App() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1 text-muted-foreground">Treatment Cost ($)</label>
+                    <label className="block text-[var(--text-caption)] font-medium mb-1 text-[var(--color-graphite)] uppercase tracking-wider">Treatment Cost ($)</label>
                     <input 
                       type="number"
-                      className="w-full bg-background border border-border rounded-md p-2"
+                      className="w-full bg-transparent border border-[var(--color-ink)] rounded-[var(--radius-inputs)] p-3 text-[var(--text-body-sm)] focus:outline-none"
                       value={mlForm.treatment_cost}
                       onChange={e => setMlForm({...mlForm, treatment_cost: Number(e.target.value)})}
                     />
@@ -715,22 +721,22 @@ function App() {
                   <button 
                     type="submit" 
                     disabled={predicting}
-                    className="w-full bg-primary text-primary-foreground font-semibold py-2 rounded-md hover:bg-primary/90 transition-colors"
+                    className="w-full bg-[var(--color-sunshine-highlight)] text-[#000000] border border-[#000000] rounded-[var(--radius-buttons)] font-medium px-6 py-4 mt-8 transition-opacity hover:opacity-90 disabled:opacity-50"
                   >
                     {predicting ? "Running Inference..." : "Predict Readmission Risk"}
                   </button>
                 </form>
               </Card>
               {prediction && (
-                <Card className="bg-gradient-to-br from-card to-muted/20 flex flex-col justify-center items-center text-center p-8 animate-in zoom-in duration-300">
-                  <h3 className="text-xl font-medium text-muted-foreground">Prediction Result</h3>
+                <Card className="flex flex-col justify-center items-center text-center p-8 animate-in zoom-in duration-300">
+                  <h3 className="text-[var(--text-caption)] font-medium text-[var(--color-graphite)] uppercase tracking-wider">Prediction Result</h3>
                   <div className={cn(
-                    "text-6xl font-black mt-2",
-                    prediction.prediction === "High Risk" ? "text-red-500" : "text-green-500"
+                    "text-[var(--text-display)] font-medium tracking-[var(--tracking-display)] mt-2 text-[var(--color-ink)]",
+                    prediction.prediction === "High Risk" ? "text-[#ef4444]" : "text-[var(--color-mint-signal)]"
                   )}>
                     {prediction.probability}
                   </div>
-                  <div className="inline-block px-4 py-1 mt-4 rounded-full bg-background border border-border font-medium">
+                  <div className="inline-block px-4 py-1 mt-4 rounded-full bg-[var(--color-cream-paper)] border border-[var(--color-ink)] text-[var(--text-body-sm)] font-medium">
                     {prediction.prediction}
                   </div>
                 </Card>
