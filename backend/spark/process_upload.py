@@ -17,6 +17,8 @@ def main():
         .config("spark.driver.memory", "256m") \
         .config("spark.executor.memory", "256m") \
         .config("spark.testing.memory", "471859200") \
+        .config("spark.driver.host", "127.0.0.1") \
+        .config("spark.driver.bindAddress", "127.0.0.1") \
         .config("spark.sql.shuffle.partitions", "2") \
         .config("spark.driver.maxResultSize", "128m") \
         .config("spark.ui.enabled", "false")
