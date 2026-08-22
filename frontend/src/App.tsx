@@ -252,7 +252,7 @@ function App() {
         fetchApi('demographics')
       ]);
 
-      setData({ kpis: kpis?.[0], trends, regions, readmissions, costs, demographics });
+      setData({ kpis, trends, regions, readmissions, costs, demographics });
     setLoading(false);
   };
 
