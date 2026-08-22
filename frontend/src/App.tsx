@@ -250,7 +250,6 @@ const GrokChatbot = () => {
 // --- Main App ---
 
 function App() {
-  const [darkMode] = useState(true);
   const [activeTab, setActiveTab] = useState<'batch' | 'streaming' | 'ai'>('batch');
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any>({});
