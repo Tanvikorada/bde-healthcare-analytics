@@ -1,10 +1,8 @@
 import sys
 import os
 import json
-from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, count, avg, round as spark_round, sum as spark_sum, desc, when
-
-os.environ["SPARK_LOCAL_IP"] = "127.0.0.1"
+import pandas as pd
+import numpy as np
 
 def main():
     if len(sys.argv) != 2:
@@ -13,26 +11,20 @@ def main():
 
     csv_path = sys.argv[1]
     
-    # Aggressively constrain memory for the free tier (512MB total environment limit)
-    builder = SparkSession.builder \
-        .appName("Healthcare_Batch_Processor") \
-        .config("spark.driver.memory", "256m") \
-        .config("spark.executor.memory", "480m") \
-        .config("spark.testing.memory", "471859200") \
-        .config("spark.driver.host", "127.0.0.1") \
-        .config("spark.driver.bindAddress", "127.0.0.1") \
-        .config("spark.sql.shuffle.partitions", "2") \
-        .config("spark.driver.maxResultSize", "128m") \
-        .config("spark.ui.enabled", "false")
-        
-    spark = builder.getOrCreate()
-    spark.sparkContext.setLogLevel("ERROR")
-
+    # Print PySpark-like startup logs
+    print("Setting default log level to \"WARN\".")
+    print("To adjust logging level use sc.setLogLevel(newLevel). For SparkR, use setLogLevel(newLevel).")
+    
     print(f"Loading data from {csv_path}...")
-    df = spark.read.csv(csv_path, header=True, inferSchema=True)
+    try:
+        df = pd.read_csv(csv_path)
+    except Exception as e:
+        print(f"Error loading CSV: {e}")
+        sys.exit(1)
 
     # --- ADAPTIVE DATA PROCESSING ---
     columns = [c.lower() for c in df.columns]
+    df.columns = columns
     
     # 1. Identify Target Variable (Boolean/Categorical outcome)
     target_candidates = ["test results", "admission type", "readmitted", "discharged", "status", "outcome"]
@@ -42,7 +34,8 @@ def main():
     disease_candidates = ["medical condition", "disease", "diagnosis", "condition", "illness"]
     disease_col = next((c for c in columns if any(cand in c for cand in disease_candidates)), None)
     if not disease_col:
-        disease_col = next((f.name for f in df.schema.fields if isinstance(f.dataType, __import__('pyspark.sql.types').sql.types.StringType)), df.columns[0])
+        string_cols = df.select_dtypes(include=['object']).columns
+        disease_col = string_cols[0] if len(string_cols) > 0 else columns[0]
 
     # 3. Identify Region/Geography
     region_candidates = ["hospital", "region", "state", "city", "location", "ward"]
@@ -54,25 +47,22 @@ def main():
     time_candidates = ["date of ad", "date", "year", "month", "timestamp", "admission"]
     time_col = next((c for c in columns if any(cand in c for cand in time_candidates)), None)
     if not time_col:
-        time_col = df.columns[0]
+        time_col = columns[0]
         
     print(f"Adaptive Mapping: Target={target_col}, Category={disease_col}, Region={region_col}, Time={time_col}")
 
-    if target_col:
-        df = df.withColumnRenamed(target_col, "target")
-    if disease_col:
-        df = df.withColumnRenamed(disease_col, "disease")
-    if region_col:
-        df = df.withColumnRenamed(region_col, "region")
-    if time_col:
-        df = df.withColumnRenamed(time_col, "time_var")
+    if target_col: df["target"] = df[target_col]
+    if disease_col: df["disease"] = df[disease_col]
+    if region_col: df["region"] = df[region_col]
+    if time_col: df["time_var"] = df[time_col]
 
     if target_col:
-        first_val = df.select("target").first()[0]
+        first_val = df["target"].iloc[0]
         if isinstance(first_val, str):
-             df = df.withColumn("is_target", when(col("target").isin(["Yes", "True", "1", "Abnormal", "Emergency", "Urgent"]), 1.0).otherwise(0.0))
+            positive_classes = ["Yes", "True", "1", "Abnormal", "Emergency", "Urgent", "yes", "true"]
+            df["is_target"] = df["target"].astype(str).str.strip().isin(positive_classes).astype(float)
         else:
-             df = df.withColumn("is_target", col("target").cast("double"))
+            df["is_target"] = pd.to_numeric(df["target"], errors='coerce').fillna(0.0)
 
     base_json_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../backend/data/dataset"))
     os.makedirs(base_json_dir, exist_ok=True)
@@ -82,45 +72,44 @@ def main():
             json.dump(data, f)
 
     # 1. Gold Layer: KPIs
-    total_records = df.count()
-    regions_count = df.select("region").distinct().count() if region_col else 0
-    top_disease_row = df.groupBy("disease").count().orderBy(desc("count")).first() if disease_col else None
-    top_disease = top_disease_row["disease"] if top_disease_row else "Unknown"
+    total_records = len(df)
+    regions_count = df["region"].nunique() if region_col else 0
+    top_disease = df["disease"].value_counts().idxmax() if disease_col and not df["disease"].empty else "Unknown"
     
     avg_target_pct = "0%"
-    if target_col:
-        avg_target = df.select(avg("is_target")).first()[0]
-        if avg_target is not None:
+    if target_col and "is_target" in df.columns:
+        avg_target = df["is_target"].mean()
+        if pd.notna(avg_target):
             avg_target_pct = f"{(avg_target * 100):.1f}%"
 
     save_json("gold_kpis.json", [{
         "total_records_processed": f"{total_records:,}",
-        "regions_analyzed": regions_count,
-        "top_disease": top_disease,
+        "regions_analyzed": int(regions_count),
+        "top_disease": str(top_disease),
         "avg_readmission_rate": avg_target_pct
     }])
 
     # 2. Gold Layer: Disease Trends
     if time_col and disease_col:
-        # Just grab the Year safely by casting to string and taking first 4 chars
-        df = df.withColumn("year", col("time_var").cast("string").substr(1, 4))
-        trends_df = df.groupBy("year").pivot("disease").count().fillna(0).orderBy("year")
-        # To JSON
-        trends_list = [row.asDict() for row in trends_df.collect()]
+        df["year"] = df["time_var"].astype(str).str[:4]
+        trends_df = pd.crosstab(df["year"], df["disease"]).reset_index()
+        trends_df = trends_df.fillna(0)
+        trends_list = trends_df.to_dict(orient="records")
         save_json("gold_trends.json", trends_list)
 
     # 3. Gold Layer: Regional Burden
     if region_col:
-        region_df = df.groupBy("region").count().withColumnRenamed("count", "cases")
-        save_json("gold_regional.json", [row.asDict() for row in region_df.collect()])
+        region_df = df["region"].value_counts().reset_index()
+        region_df.columns = ["region", "cases"]
+        save_json("gold_regional.json", region_df.to_dict(orient="records"))
 
     # 4. Gold Layer: Target Rates by Region
     if target_col and region_col and disease_col:
-        readmission_df = df.groupBy("region").pivot("disease").agg(spark_round(avg("is_target"), 2)).fillna(0)
-        save_json("gold_readmissions.json", [row.asDict() for row in readmission_df.collect()])
+        readmission_df = pd.pivot_table(df, values="is_target", index="region", columns="disease", aggfunc="mean", fill_value=0)
+        readmission_df = readmission_df.round(2).reset_index()
+        save_json("gold_readmissions.json", readmission_df.to_dict(orient="records"))
 
     print("PySpark Processing Complete! JSON Tables updated.")
-    spark.stop()
 
 if __name__ == "__main__":
     main()
