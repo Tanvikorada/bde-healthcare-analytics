@@ -135,6 +135,14 @@ def get_regional_burden(current_user: dict = Depends(get_current_user)):
 def get_readmission_rates(current_user: dict = Depends(get_current_user)):
     return load_json_data("gold_readmissions")
 
+@app.get("/api/demographics")
+def get_demographics(current_user: dict = Depends(get_current_user)):
+    return load_json_data("gold_demographics")
+
+@app.get("/api/costs")
+def get_costs(current_user: dict = Depends(get_current_user)):
+    return load_json_data("gold_costs")
+
 @app.get("/api/mapreduce-vs-spark")
 def get_performance_comparison(current_user: dict = Depends(get_current_user)):
     mock = [

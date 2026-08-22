@@ -49,14 +49,25 @@ def main():
     if not time_col:
         time_col = columns[0]
         
-    print(f"Adaptive Mapping: Target={target_col}, Category={disease_col}, Region={region_col}, Time={time_col}")
+    # 5. Identify Demographic Variables
+    age_col = next((c for c in columns if "age" in c), None)
+    gender_col = next((c for c in columns if "gender" in c or "sex" in c), None)
+    
+    # 6. Identify Cost/Financial Variable
+    cost_candidates = ["cost", "charge", "price", "revenue", "bill"]
+    cost_col = next((c for c in columns if any(cand in c for cand in cost_candidates)), None)
+
+    print(f"Adaptive Mapping: Target={target_col}, Category={disease_col}, Region={region_col}, Time={time_col}, Age={age_col}, Gender={gender_col}, Cost={cost_col}")
 
     if target_col: df["target"] = df[target_col]
     if disease_col: df["disease"] = df[disease_col]
     if region_col: df["region"] = df[region_col]
     if time_col: df["time_var"] = df[time_col]
+    if age_col: df["age"] = df[age_col]
+    if gender_col: df["gender"] = df[gender_col]
+    if cost_col: df["cost"] = df[cost_col]
 
-    if target_col:
+    if "target" in df.columns:
         first_val = df["target"].iloc[0]
         if isinstance(first_val, str):
             positive_classes = ["Yes", "True", "1", "Abnormal", "Emergency", "Urgent", "yes", "true"]
@@ -108,6 +119,31 @@ def main():
         readmission_df = pd.pivot_table(df, values="is_target", index="region", columns="disease", aggfunc="mean", fill_value=0)
         readmission_df = readmission_df.round(2).reset_index()
         save_json("gold_readmissions.json", readmission_df.to_dict(orient="records"))
+
+    # 5. Gold Layer: Demographics (Target Rates by Age/Gender)
+    if target_col and age_col and gender_col:
+        demo_df = pd.pivot_table(df, values="is_target", index="age", columns="gender", aggfunc="mean", fill_value=0)
+        demo_df = demo_df.round(2).reset_index()
+        save_json("gold_demographics.json", demo_df.to_dict(orient="records"))
+        
+    # 6. Gold Layer: Cost Analysis
+    if cost_col:
+        df["cost"] = pd.to_numeric(df["cost"], errors='coerce').fillna(0)
+        total_cost = df["cost"].sum()
+        avg_cost = df["cost"].mean()
+        
+        # Cost by Disease
+        if disease_col:
+            cost_by_disease = df.groupby("disease")["cost"].mean().round(2).reset_index()
+            cost_by_disease_list = cost_by_disease.to_dict(orient="records")
+        else:
+            cost_by_disease_list = []
+            
+        save_json("gold_costs.json", {
+            "total_revenue": float(total_cost),
+            "average_treatment_cost": float(avg_cost),
+            "cost_by_disease": cost_by_disease_list
+        })
 
     print("PySpark Processing Complete! JSON Tables updated.")
 

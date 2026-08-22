@@ -3,8 +3,9 @@ import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, Cell 
 } from 'recharts';
 import { 
-  Activity, Users, Map, AlertTriangle, Database, Cpu, Target, Upload, FileUp, CheckCircle2, XCircle, MessageSquare, Radio, Send, Sun, Moon
+  Activity, Users, Map, AlertTriangle, Database, Cpu, Target, Upload, FileUp, CheckCircle2, XCircle, MessageSquare, Radio, Send, Sun, Moon, DollarSign, HeartPulse, PieChart, TrendingUp
 } from 'lucide-react';
+import { motion } from 'framer-motion';
 import clsx from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -214,7 +215,14 @@ function App() {
 
   const [activeTab, setActiveTab] = useState<'batch' | 'streaming' | 'ai'>('batch');
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<any>({});
+  const [data, setData] = useState<any>({ 
+    kpis: null, 
+    trends: [], 
+    regions: [], 
+    readmissions: [],
+    costs: null,
+    demographics: []
+  });
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
   
   // Login State
@@ -235,13 +243,16 @@ function App() {
   const loadData = async () => {
     if (!token) return;
     setLoading(true);
-    const [kpis, trends, regions, readmissions] = await Promise.all([
-      fetchApi('kpis'),
-      fetchApi('disease-trends'),
-      fetchApi('regional-burden'),
-      fetchApi('readmission-rates'),
-    ]);
-    setData({ kpis, trends, regions, readmissions });
+      const [kpis, trends, regions, readmissions, costs, demographics] = await Promise.all([
+        fetchApi('kpis'),
+        fetchApi('disease-trends'),
+        fetchApi('regional-burden'),
+        fetchApi('readmission-rates'),
+        fetchApi('costs'),
+        fetchApi('demographics')
+      ]);
+
+      setData({ kpis: kpis?.[0], trends, regions, readmissions, costs, demographics });
     setLoading(false);
   };
 
@@ -558,70 +569,135 @@ function App() {
 
         {/* --- TAB: BATCH ANALYTICS --- */}
         {activeTab === 'batch' && (
-          <div className="w-full max-w-[var(--page-max-width)] mx-auto px-4 sm:px-6 lg:px-8 space-y-[var(--spacing-80)] animate-in fade-in duration-500">
-
-
-            <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <motion.div 
+            initial="hidden" animate="show" 
+            variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.1 } } }}
+            className="w-full max-w-[var(--page-max-width)] mx-auto px-4 sm:px-6 lg:px-8 space-y-6"
+          >
+            {/* KPI ROW */}
+            <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
               {[
                 { label: "Records Processed", icon: Database, value: data.kpis?.total_records_processed },
                 { label: "Regions Analyzed", icon: Map, value: data.kpis?.regions_analyzed },
                 { label: "Top Disease Volume", icon: Users, value: data.kpis?.top_disease },
-                { label: "Avg Readmission Rate", icon: AlertTriangle, value: data.kpis?.avg_readmission_rate, color: "text-red-500" },
+                { label: "Avg Readmission Rate", icon: AlertTriangle, value: data.kpis?.avg_readmission_rate, color: "text-[#ff4d4d]" },
+                { label: "Total Revenue", icon: DollarSign, value: data.costs ? `$${(data.costs.total_revenue / 1000000).toFixed(1)}M` : 'N/A', color: "text-[#00f2fe]" },
               ].map((kpi, i) => (
-                <Card key={i} className="hover:-translate-y-1 transition-transform group">
-                  <div className="flex items-center justify-between pb-2">
-                    <h3 className="text-[var(--text-caption)] font-medium text-[var(--text-secondary)] uppercase tracking-wider">{kpi.label}</h3>
-                    <kpi.icon className="h-4 w-4 text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors" />
-                  </div>
-                  <div className="mt-2">
-                    <div className={cn("text-[var(--text-heading)] font-medium text-[var(--text-primary)]", kpi.color === "text-red-500" ? "text-[#ef4444]" : "")}>{kpi.value}</div>
-                  </div>
-                </Card>
+                <motion.div key={i} variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } } }}>
+                  <Card className="hover:-translate-y-1 transition-transform group h-full bg-[var(--bg-glass)] border border-[var(--border-color)] shadow-[var(--shadow-glass)] relative overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-br from-[var(--accent-glow)] to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div className="flex items-center justify-between pb-2 relative z-10">
+                      <h3 className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-widest">{kpi.label}</h3>
+                      <kpi.icon className="h-4 w-4 text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors" />
+                    </div>
+                    <div className="mt-2 relative z-10">
+                      <div className={cn("text-[28px] font-bold text-[var(--text-primary)] tracking-tight", kpi.color)}>{kpi.value}</div>
+                    </div>
+                  </Card>
+                </motion.div>
               ))}
             </section>
 
-            <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card className="flex flex-col h-[400px]">
-                <h3 className="text-[var(--text-heading-sm)] font-medium mb-4">Year-over-Year Disease Trend</h3>
-                <div className="flex-1 w-full">
-                  {loading ? <Skeleton className="h-full w-full" /> : (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={data.trends}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" className="opacity-50" />
-                        <XAxis dataKey="year" stroke="var(--text-secondary)" className="text-[12px]" />
-                        <YAxis stroke="var(--text-secondary)" className="text-[12px]" />
-                        <RechartsTooltip contentStyle={{ backgroundColor: 'var(--bg-glass)', borderColor: 'var(--border-color)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)' }} itemStyle={{ color: 'var(--text-primary)' }} />
-                        <Legend />
-                        <Line type="monotone" dataKey="Heart Disease" stroke="var(--text-primary)" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
-                        <Line type="monotone" dataKey="Diabetes" stroke="var(--text-secondary)" strokeWidth={2} dot={{ r: 2 }} />
-                        <Line type="monotone" dataKey="Pneumonia" stroke="var(--text-secondary)" strokeWidth={2} dot={{ r: 2 }} />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  )}
-                </div>
-              </Card>
-              <Card className="flex flex-col h-[400px]">
-                <h3 className="text-[var(--text-heading-sm)] font-medium mb-4">Regional Disease Burden</h3>
-                <div className="flex-1 w-full">
-                  {loading ? <Skeleton className="h-full w-full" /> : (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={data.regions}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" className="opacity-50" vertical={false} />
-                        <XAxis dataKey="region" stroke="var(--text-secondary)" className="text-[12px]" />
-                        <YAxis stroke="var(--text-secondary)" className="text-[12px]" />
-                        <RechartsTooltip cursor={{fill: 'var(--bg-secondary)'}} contentStyle={{ backgroundColor: 'var(--bg-glass)', borderColor: 'var(--border-color)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)' }} itemStyle={{ color: 'var(--text-primary)' }} />
-                        <Bar dataKey="cases" radius={[4, 4, 0, 0]}>
-                          {data.regions?.map((_: any, index: number) => (
-                            <Cell key={`cell-${index}`} fill={index % 2 === 0 ? 'var(--text-primary)' : 'var(--text-secondary)'} />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  )}
-                </div>
-              </Card>
+            {/* BENTO GRID */}
+            <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              
+              {/* Main Chart - Spans 2 columns */}
+              <motion.div className="lg:col-span-2" variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }}>
+                <Card className="flex flex-col h-[420px] bg-[var(--bg-glass)] border border-[var(--border-color)] shadow-[var(--shadow-glass)]">
+                  <div className="flex items-center gap-2 mb-6">
+                    <TrendingUp className="h-5 w-5 text-[var(--accent-primary)]" />
+                    <h3 className="text-[var(--text-body)] font-semibold">Year-over-Year Disease Trend</h3>
+                  </div>
+                  <div className="flex-1 w-full relative">
+                    {loading ? <Skeleton className="h-full w-full" /> : (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={data.trends}>
+                          <defs>
+                            <linearGradient id="colorHeart" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#ff4d4d" stopOpacity={0.8}/>
+                              <stop offset="95%" stopColor="#ff4d4d" stopOpacity={0}/>
+                            </linearGradient>
+                            <linearGradient id="colorDiabetes" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#00f2fe" stopOpacity={0.8}/>
+                              <stop offset="95%" stopColor="#00f2fe" stopOpacity={0}/>
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" className="opacity-30" vertical={false} />
+                          <XAxis dataKey="year" stroke="var(--text-secondary)" className="text-[12px]" tickLine={false} axisLine={false} />
+                          <YAxis stroke="var(--text-secondary)" className="text-[12px]" tickLine={false} axisLine={false} />
+                          <RechartsTooltip contentStyle={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)', borderRadius: '12px', color: 'var(--text-primary)', boxShadow: 'var(--shadow-neon)' }} itemStyle={{ color: 'var(--text-primary)' }} />
+                          <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
+                          <Line type="monotone" dataKey="Heart Disease" stroke="#ff4d4d" strokeWidth={3} dot={false} activeDot={{ r: 6, fill: '#ff4d4d', stroke: 'var(--bg-primary)', strokeWidth: 2 }} />
+                          <Line type="monotone" dataKey="Diabetes" stroke="#00f2fe" strokeWidth={3} dot={false} activeDot={{ r: 6, fill: '#00f2fe', stroke: 'var(--bg-primary)', strokeWidth: 2 }} />
+                          <Line type="monotone" dataKey="Pneumonia" stroke="#a855f7" strokeWidth={3} dot={false} activeDot={{ r: 6, fill: '#a855f7', stroke: 'var(--bg-primary)', strokeWidth: 2 }} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    )}
+                  </div>
+                </Card>
+              </motion.div>
+
+              {/* Secondary Chart - Demographics */}
+              <motion.div className="lg:col-span-1" variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }}>
+                <Card className="flex flex-col h-[420px] bg-[var(--bg-glass)] border border-[var(--border-color)] shadow-[var(--shadow-glass)]">
+                  <div className="flex items-center gap-2 mb-6">
+                    <HeartPulse className="h-5 w-5 text-[var(--accent-primary)]" />
+                    <h3 className="text-[var(--text-body)] font-semibold">Demographics Risk (Readmission Rate)</h3>
+                  </div>
+                  <div className="flex-1 w-full">
+                    {loading ? <Skeleton className="h-full w-full" /> : (data.demographics && data.demographics.length > 0 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={data.demographics} layout="vertical" margin={{ left: -20 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" className="opacity-30" horizontal={true} vertical={false} />
+                          <XAxis type="number" stroke="var(--text-secondary)" className="text-[12px]" tickLine={false} axisLine={false} />
+                          <YAxis dataKey="age" type="category" stroke="var(--text-secondary)" className="text-[12px]" tickLine={false} axisLine={false} />
+                          <RechartsTooltip cursor={{fill: 'var(--bg-secondary)', opacity: 0.5}} contentStyle={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)', borderRadius: '12px', color: 'var(--text-primary)', boxShadow: 'var(--shadow-neon)' }} />
+                          <Legend iconType="circle" />
+                          <Bar dataKey="Male" fill="#00f2fe" radius={[0, 4, 4, 0]} barSize={12} />
+                          <Bar dataKey="Female" fill="#a855f7" radius={[0, 4, 4, 0]} barSize={12} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="h-full flex flex-col items-center justify-center text-[var(--text-secondary)] text-sm">
+                        <PieChart className="h-8 w-8 mb-2 opacity-50" />
+                        No demographic data found in CSV
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              </motion.div>
+
+              {/* Bottom Row - Regional Burden */}
+              <motion.div className="lg:col-span-3" variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }}>
+                <Card className="flex flex-col h-[350px] bg-[var(--bg-glass)] border border-[var(--border-color)] shadow-[var(--shadow-glass)]">
+                  <div className="flex items-center gap-2 mb-6">
+                    <Map className="h-5 w-5 text-[var(--accent-primary)]" />
+                    <h3 className="text-[var(--text-body)] font-semibold">Regional Disease Burden vs Readmissions</h3>
+                  </div>
+                  <div className="flex-1 w-full">
+                    {loading ? <Skeleton className="h-full w-full" /> : (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={data.regions}>
+                          <defs>
+                            <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="var(--accent-primary)" stopOpacity={1}/>
+                              <stop offset="100%" stopColor="var(--accent-primary)" stopOpacity={0.2}/>
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" className="opacity-30" vertical={false} />
+                          <XAxis dataKey="region" stroke="var(--text-secondary)" className="text-[12px]" tickLine={false} axisLine={false} />
+                          <YAxis stroke="var(--text-secondary)" className="text-[12px]" tickLine={false} axisLine={false} />
+                          <RechartsTooltip cursor={{fill: 'var(--bg-secondary)', opacity: 0.5}} contentStyle={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)', borderRadius: '12px', color: 'var(--text-primary)', boxShadow: 'var(--shadow-neon)' }} />
+                          <Bar dataKey="cases" fill="url(#barGradient)" radius={[6, 6, 0, 0]} maxBarSize={60} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    )}
+                  </div>
+                </Card>
+              </motion.div>
+
             </section>
-          </div>
+          </motion.div>
         )}
 
         {/* --- TAB: STREAMING SPEED LAYER --- */}
