@@ -530,7 +530,7 @@ function App() {
                   <div className="relative">
                     <input 
                       type="file" 
-                      accept=".csv"
+                      accept=".csv,text/csv,application/csv,application/x-csv,text/x-csv,text/comma-separated-values,text/x-comma-separated-values"
                       onChange={handleFileUpload}
                       disabled={isUploading}
                       className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed z-20"
