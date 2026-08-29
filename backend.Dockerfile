@@ -11,9 +11,10 @@ WORKDIR /app
 COPY api/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the API and Backend directories
+# Copy the API, Backend directories and default dataset
 COPY api/ ./api/
 COPY backend/ ./backend/
+COPY test.csv ./test.csv
 
 # Set working directory to API for uvicorn
 WORKDIR /app/api
