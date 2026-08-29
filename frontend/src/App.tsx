@@ -326,7 +326,11 @@ function App() {
       if (res.ok) {
         setUploadStatus('success');
         setUploadMessage('Processing Complete! Dashboard Updated.');
-        loadData(); // Re-fetch the newly generated data
+        if (result.processed_results) {
+           setData(result.processed_results);
+        } else {
+           loadData();
+        }
       } else {
         setUploadStatus('error');
         setUploadMessage(result.detail || 'Processing failed');
@@ -558,8 +562,6 @@ function App() {
           </div>
         )}
 
-        {data.kpis && (
-          <>
             {/* Mobile Tabs */}
             <div className="flex md:hidden gap-[var(--spacing-8)] w-full overflow-x-auto mb-[var(--section-gap)] pb-2 px-4">
                 <button onClick={() => setActiveTab('batch')} className={cn("flex-1 px-4 py-2 text-[var(--text-body-sm)] font-medium rounded-[var(--radius-sm)] transition-all whitespace-nowrap border", activeTab === 'batch' ? "bg-[var(--accent-primary)] border-[var(--text-primary)] text-white" : "bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] border-[var(--border-color)] text-[var(--text-primary)]")}>Batch</button>
@@ -574,6 +576,14 @@ function App() {
             variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.1 } } }}
             className="w-full max-w-[var(--page-max-width)] mx-auto px-4 sm:px-6 lg:px-8 space-y-6"
           >
+            {!data.kpis ? (
+              <Card className="flex flex-col items-center justify-center p-12 text-center bg-[var(--bg-glass)] border border-[var(--border-color)]">
+                <Database className="h-12 w-12 text-[var(--text-secondary)] mb-4" />
+                <h2 className="text-xl font-bold text-[var(--text-primary)]">No Data Found</h2>
+                <p className="text-[var(--text-secondary)] mt-2">Please upload a CSV dataset to begin generating insights.</p>
+              </Card>
+            ) : (
+              <>
             {/* KPI ROW */}
             <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
               {[
@@ -697,6 +707,8 @@ function App() {
               </motion.div>
 
             </section>
+            </>
+            )}
           </motion.div>
         )}
 
@@ -780,14 +792,32 @@ function App() {
 
             <section className="space-y-6 flex flex-col">
               <div className="flex items-center gap-2 border-b border-border pb-2">
-                <Cpu className="h-6 w-6 text-primary" />
-                <h2 className="text-2xl font-semibold tracking-tight">Chat with your Data</h2>
+                <Cpu className="h-6 w-6 text-[var(--accent-primary)]" />
+                <h2 className="text-2xl font-semibold tracking-tight text-[var(--text-primary)]">Chat with your Data</h2>
               </div>
               <GrokChatbot />
             </section>
-          </div>
+          </motion.div>
         )}
-          </>
+
+        {/* --- TAB: AI INSIGHTS --- */}
+        {activeTab === 'ai' && (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+            className="w-full max-w-[var(--page-max-width)] mx-auto px-4 sm:px-6 lg:px-8 space-y-6"
+          >
+            <Card className="p-8 bg-[var(--bg-glass)] border border-[var(--border-color)] shadow-[var(--shadow-glass)] flex flex-col items-center text-center">
+              <Bot className="h-16 w-16 text-[var(--accent-primary)] mb-6" />
+              <h2 className="text-3xl font-bold text-[var(--text-primary)] mb-4 tracking-tight">AI Data Studio</h2>
+              <p className="text-[var(--text-secondary)] max-w-xl text-[var(--text-body-lg)] leading-relaxed">
+                Connect HealthHadoop AI to your Big Data pipeline. Ask complex clinical questions and get instant, context-aware insights.
+              </p>
+              <button className="mt-8 px-8 py-3 bg-[var(--accent-primary)] hover:bg-[var(--accent-hover)] text-white rounded-[var(--radius-md)] font-medium transition-all shadow-[var(--shadow-neon)] hover:shadow-[var(--shadow-neon-strong)] flex items-center gap-2 group">
+                <Wand2 className="h-5 w-5 group-hover:rotate-12 transition-transform" />
+                Launch Studio
+              </button>
+            </Card>
+          </motion.div>
         )}
       </main>
       

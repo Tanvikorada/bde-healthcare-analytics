@@ -1,22 +1,37 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, WebSocket
-from fastapi.middleware.cors import CORSMiddleware
-import subprocess
-from pydantic import BaseModel
+import sys
 import os
 import json
 import random
 import asyncio
 from dotenv import load_dotenv
+import pandas as pd
+from fastapi import FastAPI, UploadFile, File, HTTPException, WebSocket
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from openai import AsyncOpenAI
 import joblib
-import pandas as pd
-import aiofiles
-from aiokafka import AIOKafkaConsumer
 from fastapi.security import OAuth2PasswordRequestForm
 from auth import create_access_token, verify_password, get_user, mock_users_db, get_current_user, ACCESS_TOKEN_EXPIRE_MINUTES, timedelta, Depends
+
+# Add parent directory to path so we can import backend
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from backend.pandas_processor import process_dataframe
+
 load_dotenv()
 
 app = FastAPI(title="Healthcare Data Analytics API")
+
+# --- GLOBAL IN-MEMORY STATE ---
+app.state.dataset = {}
+
+# Allow frontend to access API
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Load ML Models if they exist
 ML_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../backend/ml"))
@@ -36,40 +51,22 @@ client = AsyncOpenAI(
     base_url="https://api.x.ai/v1",
 )
 
-# Allow frontend to access API
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-MOCK_DIR = "./mock_data"
-
-# Helpers to load real Hadoop output if available, else mock
-def load_json_or_mock(filename, mock_data):
-    file_path = os.path.join(MOCK_DIR, filename)
-    if os.path.exists(file_path):
+# --- STARTUP EVENT ---
+@app.on_event("startup")
+async def load_initial_data():
+    """Load default dataset into memory on startup so dashboard is never empty"""
+    default_csv = os.path.abspath(os.path.join(os.path.dirname(__file__), "../test.csv"))
+    if os.path.exists(default_csv):
         try:
-            with open(file_path, "r") as f:
-                return json.load(f)
-        except Exception:
-            return mock_data
-    return mock_data
+            df = pd.read_csv(default_csv)
+            app.state.dataset = process_dataframe(df)
+            print("Successfully loaded test.csv into memory.")
+        except Exception as e:
+            print(f"Failed to load test.csv: {e}")
+    else:
+        print("No test.csv found, starting with empty state.")
 
-def load_json_data(table_name):
-    file_path = os.path.abspath(os.path.join(os.path.dirname(__file__), f"../backend/data/dataset/{table_name}.json"))
-    if not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail="Data not found. Please upload a dataset first.")
-    
-    with open(file_path, "r") as f:
-        data = json.load(f)
-        
-    if table_name == "gold_kpis" and isinstance(data, list) and len(data) > 0:
-        return data[0]
-    return data
-
+# --- AUTH ---
 @app.post("/api/token")
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
     user = get_user(mock_users_db, form_data.username)
@@ -89,81 +86,51 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
 async def read_users_me(current_user: dict = Depends(get_current_user)):
     return {"username": current_user["username"], "full_name": current_user["full_name"]}
 
+# --- DATA UPLOAD (IN-MEMORY) ---
 @app.post("/api/upload")
-def upload_dataset(file: UploadFile = File(...)):
+async def upload_dataset(file: UploadFile = File(...)):
     if not file.filename.endswith('.csv'):
         raise HTTPException(status_code=400, detail="Only CSV files are allowed")
         
-    # Save the file temporarily
-    upload_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../backend/data/dataset"))
-    os.makedirs(upload_dir, exist_ok=True)
-    file_path = os.path.join(upload_dir, "custom_upload.csv")
-    
-    with open(file_path, "wb") as buffer:
-        content = file.file.read()
-        buffer.write(content)
-        
-    # Trigger the PySpark processing script
-    spark_script = os.path.abspath(os.path.join(os.path.dirname(__file__), "../backend/spark/process_upload.py"))
-    
     try:
-        result = subprocess.run(
-            ["python", spark_script, file_path], 
-            capture_output=True, text=True, check=True
-        )
-    except subprocess.CalledProcessError as e:
-        if e.returncode == 2:
-            raise HTTPException(status_code=400, detail="Data Quality Check Failed. Missing required columns.")
-        else:
-            raise HTTPException(status_code=500, detail=f"Spark Processing Failed: {e.stderr}")
-            
-    return {"message": "File processed successfully", "logs": result.stdout}
+        df = pd.read_csv(file.file)
+        app.state.dataset = process_dataframe(df)
+        return {"message": "File processed successfully", "processed_results": app.state.dataset}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Data Processing Failed: {str(e)}")
+
+# --- DATA ENDPOINTS ---
+def get_state_data(key: str):
+    data = app.state.dataset.get(key)
+    if data is None:
+        raise HTTPException(status_code=404, detail="Data not found. Please upload a dataset first.")
+    return data
 
 @app.get("/api/kpis")
 def get_kpis(current_user: dict = Depends(get_current_user)):
-    return load_json_data("gold_kpis")
+    return get_state_data("kpis")
 
 @app.get("/api/disease-trends")
 def get_disease_trends(current_user: dict = Depends(get_current_user)):
-    return load_json_data("gold_trends")
+    return get_state_data("trends")
 
 @app.get("/api/regional-burden")
 def get_regional_burden(current_user: dict = Depends(get_current_user)):
-    return load_json_data("gold_regional")
+    return get_state_data("regions")
 
 @app.get("/api/readmission-rates")
 def get_readmission_rates(current_user: dict = Depends(get_current_user)):
-    return load_json_data("gold_readmissions")
+    return get_state_data("readmissions")
 
 @app.get("/api/demographics")
 def get_demographics(current_user: dict = Depends(get_current_user)):
-    return load_json_data("gold_demographics")
+    return get_state_data("demographics")
 
 @app.get("/api/costs")
 def get_costs(current_user: dict = Depends(get_current_user)):
-    return load_json_data("gold_costs")
+    return get_state_data("costs")
 
-@app.get("/api/mapreduce-vs-spark")
-def get_performance_comparison(current_user: dict = Depends(get_current_user)):
-    mock = [
-        {"framework": "MapReduce (Disk I/O)", "time": 52.3},
-        {"framework": "PySpark (In-Memory)", "time": 12.5}
-    ]
-    return load_json_or_mock("performance.json", mock)
-
-@app.get("/api/surprising-insight")
-def get_surprising_insight(current_user: dict = Depends(get_current_user)):
-    mock = {
-        "insight_title": "Weekend Admissions Spike Readmissions",
-        "description": "Patients admitted on weekends for Heart Disease have an 8% higher readmission rate than weekday admissions. This highlights potential staffing or triage discrepancies on weekends.",
-        "data": [
-            {"disease": "Heart Disease", "weekday_rate": 0.17, "weekend_rate": 0.25},
-            {"disease": "Diabetes", "weekday_rate": 0.12, "weekend_rate": 0.13},
-            {"disease": "Sepsis", "weekday_rate": 0.20, "weekend_rate": 0.24}
-        ]
-    }
-    return load_json_or_mock("surprising_insight.json", mock)
-
+# --- ML & STREAMING ---
 class PatientData(BaseModel):
     age_band: str
     disease: str
@@ -176,7 +143,6 @@ def predict_readmission(data: PatientData, current_user: dict = Depends(get_curr
         return {"prediction": "Error", "probability": "0%", "factors": ["Model not trained"]}
     
     try:
-        # Create DataFrame for single inference
         df = pd.DataFrame([{
             'age_band': data.age_band,
             'disease': data.disease,
@@ -184,7 +150,6 @@ def predict_readmission(data: PatientData, current_user: dict = Depends(get_curr
             'treatment_cost': data.treatment_cost
         }])
         
-        # Handle unseen labels by falling back to 0 (or a known class) to prevent crash
         def safe_transform(encoder, val):
             if val in encoder.classes_:
                 return encoder.transform([val])[0]
@@ -195,8 +160,6 @@ def predict_readmission(data: PatientData, current_user: dict = Depends(get_curr
         df['gender_encoded'] = safe_transform(le_gender, data.gender)
         
         X = df[['age_encoded', 'disease_encoded', 'gender_encoded', 'treatment_cost']]
-        
-        # Predict probability of class 1 (Readmitted = Yes)
         prob = rf_model.predict_proba(X)[0][1]
         prob_pct = round(prob * 100, 1)
         
@@ -208,35 +171,32 @@ def predict_readmission(data: PatientData, current_user: dict = Depends(get_curr
     except Exception as e:
         return {"prediction": "Error", "probability": "0%", "factors": [str(e)]}
 
-# --- LAMBDA ARCHITECTURE: SPEED LAYER (STREAMING) ---
 @app.websocket("/api/stream/vitals")
 async def stream_vitals(websocket: WebSocket):
     await websocket.accept()
-    print("Client connected to real Kafka stream")
+    print("Client connected to live vitals stream")
     
-    consumer = AIOKafkaConsumer(
-        'icu_vitals',
-        bootstrap_servers='kafka:29092',
-        value_deserializer=lambda m: json.loads(m.decode('utf-8')),
-        auto_offset_reset='latest'
-    )
-
     try:
-        await consumer.start()
-        async for msg in consumer:
-            vital_data = msg.value
+        while True:
+            # Generate realistic fake vitals
+            hr = random.randint(60, 130)
+            o2 = random.randint(85, 100)
+            sys_bp = random.randint(90, 160)
+            dia_bp = random.randint(60, 100)
             
-            # Simple anomaly logic
-            vital_data["anomaly_detected"] = False
-            if vital_data.get("heart_rate", 0) > 120 or vital_data.get("oxygen_level", 100) < 90:
-                vital_data["anomaly_detected"] = True
-                
+            vital_data = {
+                "patient_id": f"PT-{random.randint(1000, 9999)}",
+                "heart_rate": hr,
+                "oxygen_level": o2,
+                "blood_pressure": f"{sys_bp}/{dia_bp}",
+                "anomaly_detected": hr > 110 or o2 < 92 or sys_bp > 140
+            }
+            
             await websocket.send_json(vital_data)
+            await asyncio.sleep(1.5)
             
     except Exception as e:
         print(f"Streaming disconnected: {e}")
-    finally:
-        await consumer.stop()
 
 # --- GEN AI LAYER: GROK CHATBOT ---
 class ChatRequest(BaseModel):
@@ -248,14 +208,13 @@ async def ask_grok(request: ChatRequest, current_user: dict = Depends(get_curren
     if not api_key or api_key == "your_api_key_here":
         return {"reply": "Please set your GROK_API_KEY in the backend .env file to talk to me!"}
 
-    # Gather context from the Hadoop/Spark output
-    kpis = load_json_or_mock("kpis.json", {})
-    trends = load_json_or_mock("disease_trends.json", {})
+    kpis = app.state.dataset.get("kpis", {})
+    trends = app.state.dataset.get("trends", [])
     
     system_prompt = f"""
     You are a highly intelligent Data Engineering Assistant named 'HealthHadoop AI'. 
     You are answering questions about a hospital's big data analytics dashboard.
-    Here is the latest data computed by Apache Spark:
+    Here is the latest data computed:
     KPIs: {json.dumps(kpis)}
     Trends: {json.dumps(trends)[:200]}... (truncated)
     
@@ -267,7 +226,7 @@ async def ask_grok(request: ChatRequest, current_user: dict = Depends(get_curren
             model="grok-beta",
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": req.query}
+                {"role": "user", "content": request.query}
             ],
         )
         return {"reply": completion.choices[0].message.content}
