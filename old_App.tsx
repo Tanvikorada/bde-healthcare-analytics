@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, Cell 
+  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer 
 } from 'recharts';
 import { 
-  Activity, Users, Map, AlertTriangle, Database, Cpu, Target, Upload, FileUp, CheckCircle2, XCircle, MessageSquare, Radio, Send
+  Activity, Users, Map, AlertTriangle, Database, Cpu, Target, Upload, FileUp, CheckCircle2, XCircle, MessageSquare, Radio, Send, Sun, Moon, DollarSign, HeartPulse, PieChart, TrendingUp
 } from 'lucide-react';
+import { motion } from 'framer-motion';
 import clsx from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -32,72 +33,19 @@ const fetchApi = async (endpoint: string, options: RequestInit = {}) => {
     if (!response.ok) throw new Error('API down');
     return await response.json();
   } catch (error) {
-    console.warn(`Backend not reachable for ${endpoint}. Using fallback mock data.`);
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        switch (endpoint) {
-          case 'kpis':
-            resolve({ total_records_processed: "50,000", regions_analyzed: 5, top_disease: "Heart Disease", avg_readmission_rate: "15.4%" });
-            break;
-          case 'disease-trends':
-            resolve([
-              { year: 2020, Diabetes: 1200, "Heart Disease": 1350, Pneumonia: 800 },
-              { year: 2021, Diabetes: 1250, "Heart Disease": 1400, Pneumonia: 750 },
-              { year: 2022, Diabetes: 1300, "Heart Disease": 1500, Pneumonia: 900 },
-              { year: 2023, Diabetes: 1400, "Heart Disease": 1600, Pneumonia: 850 },
-            ]);
-            break;
-          case 'regional-burden':
-            resolve([
-              { region: "North", cases: 12500 },
-              { region: "South", cases: 14200 },
-              { region: "East", cases: 9800 },
-              { region: "West", cases: 11500 },
-              { region: "Midwest", cases: 10500 },
-            ]);
-            break;
-          case 'readmission-rates':
-            resolve([
-              { region: "North", rate: 0.15 },
-              { region: "South", rate: 0.17 },
-              { region: "East", rate: 0.14 },
-              { region: "West", rate: 0.16 },
-              { region: "Midwest", rate: 0.14 },
-            ]);
-            break;
-          case 'mapreduce-vs-spark':
-            resolve([
-              { framework: "MapReduce (Disk I/O)", time: 52.3 },
-              { framework: "PySpark (In-Memory)", time: 12.5 },
-            ]);
-            break;
-          case 'surprising-insight':
-            resolve({
-              insight_title: "Weekend Admissions Spike Readmissions",
-              description: "Patients admitted on weekends have an 8% higher readmission rate across all regions, highlighting potential staffing or triage discrepancies on weekends vs weekdays.",
-              data: [
-                { disease: "Heart Disease", weekday_rate: 17, weekend_rate: 25 },
-                { disease: "Diabetes", weekday_rate: 12, weekend_rate: 13 },
-                { disease: "Sepsis", weekday_rate: 20, weekend_rate: 24 }
-              ]
-            });
-            break;
-          default:
-            resolve(null);
-        }
-      }, 300);
-    });
+    console.warn(`Backend not reachable for ${endpoint} or data empty. Returning null.`);
+    return null;
   }
 };
 
 const Card = ({ children, className }: { children: React.ReactNode, className?: string }) => (
-  <div className={cn("bg-[var(--color-cream-card)] text-[var(--color-ink)] rounded-[var(--radius-cards)] border border-[var(--color-ink)] p-[var(--card-padding)] transition-all duration-300", className)}>
+  <div className={cn("bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] text-[var(--text-primary)] rounded-[var(--radius-sm)] border border-[var(--border-color)] p-[var(--card-padding)] transition-all duration-300", className)}>
     {children}
   </div>
 );
 
 const Skeleton = ({ className }: { className?: string }) => (
-  <div className={cn("animate-pulse bg-muted rounded-md", className)} />
+  <div className={cn("animate-pulse bg-[var(--bg-secondary)] rounded-[var(--radius-sm)]", className)} />
 );
 
 // --- Subcomponents ---
@@ -204,40 +152,42 @@ const GrokChatbot = () => {
 
   return (
     <Card className="flex flex-col h-[600px] p-0 overflow-hidden">
-      <div className="bg-[var(--color-cream-paper)] border-b border-[var(--color-ink)] p-4 flex items-center gap-2">
-        <MessageSquare className="h-5 w-5 text-[var(--color-ink)]" />
-        <h3 className="text-[var(--text-heading-sm)] font-medium tracking-tight text-[var(--color-ink)]">Grok Data Assistant</h3>
+      <div className="bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] border-b border-[var(--border-color)] p-4 flex items-center gap-2 rounded-t-[var(--radius-sm)]">
+        <MessageSquare className="h-5 w-5 text-[var(--text-primary)]" />
+        <h3 className="text-[var(--text-heading-sm)] font-bold tracking-tight text-[var(--text-primary)]">Grok Data Assistant</h3>
       </div>
-      <div className="flex-1 p-4 overflow-y-auto space-y-4" ref={scrollRef}>
-        {messages.map((msg, i) => (
-          <div key={i} className={cn("flex w-full", msg.role === 'user' ? "justify-end" : "justify-start")}>
+      
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[var(--bg-secondary)]">
+        {messages.map((msg, idx) => (
+          <div key={idx} className={cn("flex", msg.role === 'user' ? "justify-end" : "justify-start")}>
             <div className={cn(
-              "max-w-[80%] rounded-[var(--radius-xl)] px-4 py-3 text-[var(--text-body-sm)] border border-[var(--color-ink)]",
-              msg.role === 'user' ? "bg-[var(--color-sunshine-highlight)] text-[#000000]" : "bg-[var(--color-cream-paper)] text-[var(--color-ink)]"
+              "max-w-[80%] rounded-[var(--radius-sm)] px-[var(--spacing-16)] py-[var(--spacing-16)] text-[var(--text-body-sm)] border border-[var(--border-color)]",
+              msg.role === 'user' ? "bg-[var(--accent-primary)] text-white" : "bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] text-[var(--text-primary)] shadow-sm"
             )}>
               {msg.content}
             </div>
           </div>
         ))}
         {loading && (
-          <div className="flex w-full justify-start">
-            <div className="bg-[var(--color-cream-paper)] border border-[var(--color-ink)] rounded-[var(--radius-xl)] px-4 py-3 text-sm animate-pulse flex items-center gap-2">
-              <div className="h-2 w-2 bg-[var(--color-ink)] rounded-full animate-bounce"></div>
-              <div className="h-2 w-2 bg-[var(--color-ink)] rounded-full animate-bounce delay-75"></div>
-              <div className="h-2 w-2 bg-[var(--color-ink)] rounded-full animate-bounce delay-150"></div>
+          <div className="flex justify-start">
+            <div className="bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] border border-[var(--border-color)] rounded-[var(--radius-sm)] px-[var(--spacing-16)] py-[var(--spacing-16)] text-sm animate-pulse flex items-center gap-2">
+              <div className="h-2 w-2 bg-[var(--text-secondary)] rounded-full animate-bounce"></div>
+              <div className="h-2 w-2 bg-[var(--text-secondary)] rounded-full animate-bounce delay-75"></div>
+              <div className="h-2 w-2 bg-[var(--text-secondary)] rounded-full animate-bounce delay-150"></div>
             </div>
           </div>
         )}
       </div>
-      <form onSubmit={handleSend} className="p-4 border-t border-[var(--color-ink)] flex gap-2 bg-[var(--color-cream-paper)]">
+
+      <form onSubmit={handleSend} className="p-[var(--spacing-16)] border-t border-[var(--border-color)] flex gap-2 bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] rounded-b-[var(--radius-sm)]">
         <input 
           type="text" 
           value={input}
           onChange={e => setInput(e.target.value)}
-          placeholder="Ask about readmission trends..."
-          className="flex-1 bg-transparent border border-[var(--color-ink)] rounded-[var(--radius-inputs)] px-4 py-3 text-[var(--text-body-sm)] text-[var(--color-ink)] focus:outline-none focus:ring-1 focus:ring-[var(--color-ink)]"
+          placeholder="Ask Grok about anomalies, predictions, or trends..."
+          className="flex-1 bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] border border-[var(--border-color)] rounded-[var(--radius-inputs)] px-4 py-3 text-[var(--text-body-sm)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--text-primary)] transition-colors"
         />
-        <button type="submit" disabled={loading} className="bg-[var(--color-sunshine-highlight)] text-[#000000] border border-[#000000] px-4 py-3 rounded-[var(--radius-buttons)] hover:opacity-90 disabled:opacity-50 transition-opacity">
+        <button type="submit" disabled={loading} className="bg-[var(--accent-primary)] text-white px-[20px] py-[10px] rounded-[var(--radius-buttons)] hover:opacity-90 disabled:opacity-50 transition-colors shadow-sm">
           <Send className="h-4 w-4" />
         </button>
       </form>
@@ -248,10 +198,31 @@ const GrokChatbot = () => {
 // --- Main App ---
 
 function App() {
-  const [darkMode] = useState(true);
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    const saved = localStorage.getItem('theme');
+    if (saved === 'dark' || saved === 'light') return saved;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  });
+
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
   const [activeTab, setActiveTab] = useState<'batch' | 'streaming' | 'ai'>('batch');
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<any>({});
+  const [data, setData] = useState<any>({ 
+    kpis: null, 
+    trends: [], 
+    regions: [], 
+    readmissions: [],
+    costs: null,
+    demographics: []
+  });
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
   
   // Login State
@@ -260,7 +231,7 @@ function App() {
   const [loginError, setLoginError] = useState('');
   
   // ML Form State
-  const [mlForm, setMlForm] = useState({ age_band: '61-70', disease: 'Heart Disease', gender: 'M', treatment_cost: 5000 });
+  const [mlForm, setMlForm] = useState({ age_band: '51-60', disease: 'Heart Disease', treatment_cost: 15000, gender: 'Male' });
   const [prediction, setPrediction] = useState<any>(null);
   const [predicting, setPredicting] = useState(false);
 
@@ -272,25 +243,22 @@ function App() {
   const loadData = async () => {
     if (!token) return;
     setLoading(true);
-    const [kpis, trends, regions, readmissions, perf, insight] = await Promise.all([
-      fetchApi('kpis'),
-      fetchApi('disease-trends'),
-      fetchApi('regional-burden'),
-      fetchApi('readmission-rates'),
-      fetchApi('mapreduce-vs-spark'),
-      fetchApi('surprising-insight'),
-    ]);
-    setData({ kpis, trends, regions, readmissions, perf, insight });
+      const [kpis, trends, regions, readmissions, costs, demographics] = await Promise.all([
+        fetchApi('kpis'),
+        fetchApi('disease-trends'),
+        fetchApi('regional-burden'),
+        fetchApi('readmission-rates'),
+        fetchApi('costs'),
+        fetchApi('demographics')
+      ]);
+
+      setData({ kpis, trends, regions, readmissions, costs, demographics });
     setLoading(false);
   };
 
   useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [darkMode]);
+    loadData();
+  }, []);
 
   useEffect(() => {
     if (token) {
@@ -410,48 +378,48 @@ function App() {
 
   if (!token) {
     return (
-      <div className={cn("min-h-screen font-sans antialiased flex flex-col items-center justify-center", darkMode ? "dark" : "")}>
-        <Card className="w-full max-w-md relative z-10 p-8 space-y-8">
+      <div className="min-h-screen font-sans antialiased flex flex-col items-center justify-center bg-[var(--bg-secondary)]">
+        <Card className="w-full max-w-md relative z-10 p-[var(--spacing-32)] space-y-[var(--spacing-32)] shadow-sm">
           <div className="text-center">
-            <div className="inline-flex items-center justify-center w-12 h-12 rounded-[12px] bg-[var(--color-cream-paper)] border border-[var(--color-ink)] text-[var(--color-ink)] mb-6">
+            <div className="inline-flex items-center justify-center w-[48px] h-[48px] rounded-[var(--radius-sm)] bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-primary)] mb-[var(--spacing-24)]">
               <Activity className="h-6 w-6" />
             </div>
-            <h1 className="text-[var(--text-display)] leading-[var(--leading-display)] font-medium tracking-[var(--tracking-display)] text-[var(--color-ink)] mb-4">
+            <h1 className="text-[var(--text-heading)] leading-[var(--leading-heading)] font-bold tracking-tight text-[var(--text-primary)] mb-[var(--spacing-16)] font-fraktion">
               Login
             </h1>
-            <p className="text-[var(--text-body)] text-[var(--color-graphite)] max-w-[640px] mx-auto">
+            <p className="text-[var(--text-body)] text-[var(--text-secondary)] max-w-[640px] mx-auto">
               Secure access to BDE Healthcare Analytics
             </p>
           </div>
           
-          <form onSubmit={handleLogin} className="space-y-6 mt-8">
+          <form onSubmit={handleLogin} className="space-y-[var(--spacing-24)] mt-[var(--spacing-32)]">
             <div>
-              <label className="block text-[var(--text-caption)] font-medium mb-2 text-[var(--color-ink)] tracking-wider uppercase">Username</label>
+              <label className="block text-[var(--text-caption)] font-medium mb-[var(--spacing-8)] text-[var(--text-secondary)] tracking-wider uppercase">Username</label>
               <input 
                 type="text" 
                 value={username}
                 onChange={e => setUsername(e.target.value)}
-                className="w-full bg-transparent border border-[var(--color-ink)] rounded-[var(--radius-inputs)] p-3 text-[var(--text-body-sm)] text-[var(--color-ink)] focus:outline-none focus:ring-1 focus:ring-[var(--color-ink)]"
+                className="w-full bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] border border-[var(--border-color)] rounded-[var(--radius-inputs)] p-[var(--spacing-16)] text-[var(--text-body-sm)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--text-primary)] transition-colors"
               />
             </div>
             <div>
-              <label className="block text-[var(--text-caption)] font-medium mb-2 text-[var(--color-ink)] tracking-wider uppercase">Password</label>
+              <label className="block text-[var(--text-caption)] font-medium mb-[var(--spacing-8)] text-[var(--text-secondary)] tracking-wider uppercase">Password</label>
               <input 
                 type="password" 
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                className="w-full bg-transparent border border-[var(--color-ink)] rounded-[var(--radius-inputs)] p-3 text-[var(--text-body-sm)] text-[var(--color-ink)] focus:outline-none focus:ring-1 focus:ring-[var(--color-ink)]"
+                className="w-full bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] border border-[var(--border-color)] rounded-[var(--radius-inputs)] p-[var(--spacing-16)] text-[var(--text-body-sm)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--text-primary)] transition-colors"
               />
             </div>
-            {loginError && <p className="text-[var(--color-mint-signal)] text-sm font-medium">{loginError}</p>}
+            {loginError && <p className="text-[var(--text-primary)] text-[var(--text-body-sm)] font-medium">{loginError}</p>}
             <button 
               type="submit" 
-              className="w-full bg-[var(--color-sunshine-highlight)] text-[#000000] border border-[#000000] rounded-[var(--radius-buttons)] font-medium px-6 py-4 mt-8 transition-opacity hover:opacity-90"
+              className="w-full bg-[var(--accent-primary)] text-white rounded-[var(--radius-buttons)] font-medium px-[var(--spacing-24)] py-[12px] shadow-sm hover:opacity-90 transition-colors"
             >
               Sign In
             </button>
           </form>
-          <div className="text-center text-[var(--text-caption)] text-[var(--color-graphite)] mt-6">
+          <div className="text-center text-[var(--text-caption)] text-[var(--color-steel)] mt-[var(--spacing-24)]">
             Default credentials: admin / admin123
           </div>
         </Card>
@@ -461,70 +429,65 @@ function App() {
 
   if (loading) {
     return (
-      <div className={cn("min-h-screen flex items-center justify-center", darkMode ? "dark" : "")}>
+      <div className="min-h-screen flex items-center justify-center bg-[var(--bg-secondary)]">
         <div className="animate-pulse flex flex-col items-center gap-4">
-          <Activity className="h-12 w-12 text-[var(--color-ink)] animate-bounce" />
-          <p className="text-[var(--text-subheading)] font-medium tracking-tight text-[var(--color-ink)]">Initializing Data...</p>
+          <Activity className="h-12 w-12 text-[var(--text-primary)] animate-bounce" />
+          <p className="text-[var(--text-subheading)] font-medium tracking-tight text-[var(--text-primary)]">Initializing Data...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className={cn("min-h-screen font-sans antialiased selection:bg-[var(--color-sunshine-highlight)]", darkMode ? "dark" : "")}>
-      <div className="relative z-10 max-w-[var(--page-max-width)] mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-[var(--section-gap)] animate-in slide-in-from-top-4 duration-500">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-12 h-12 rounded-[var(--radius-images)] bg-[var(--color-cream-paper)] border border-[var(--color-ink)] text-[var(--color-ink)]">
-              <Activity className="h-6 w-6" />
-            </div>
-            <div>
-              <h1 className="text-[var(--text-heading-sm)] font-medium tracking-tight text-[var(--color-ink)]">BDE Healthcare Analytics</h1>
-              <p className="text-[var(--text-caption)] text-[var(--color-graphite)] uppercase tracking-wider mt-1">Enterprise Lakehouse</p>
-            </div>
+    <div className="min-h-screen font-sans antialiased selection:bg-[var(--accent-glow)] selection:text-[var(--text-primary)] bg-[var(--bg-secondary)]">
+      <div className="relative z-10 w-full">
+        {/* Top Navigation - Glassnode style */}
+        <header className="w-full bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] border-b border-[var(--border-color)] h-[64px] flex items-center px-[var(--spacing-24)] justify-between animate-in slide-in-from-top-4 duration-500 sticky top-0 z-50">
+          <div className="flex items-center gap-[var(--spacing-8)]">
+            <Activity className="h-5 w-5 text-[var(--text-primary)]" />
+            <span className="text-[var(--text-subheading)] font-bold tracking-tight text-[var(--text-primary)]">glassnode</span>
+            <span className="text-[var(--text-body-sm)] text-[var(--text-secondary)] ml-2 border-l border-[var(--border-color)] pl-2">BDE Healthcare</span>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-[var(--spacing-16)]">
             <button
-              onClick={() => {
-                // Not standard react state for dark mode toggle, but it's fine since we mutate the DOM directly above if we want to change it.
-                // Wait, darkMode is a const. We should change it to a state! Let's just do a window reload for now if we can't change the state.
-                // Actually, I'll update the state definition later. For now, let's just trigger a re-render.
-                document.documentElement.classList.toggle('dark');
-              }}
-              className="p-2 border border-[var(--color-ink)] rounded-[var(--radius-buttons)] text-[var(--color-ink)] hover:bg-[var(--color-sunshine-highlight)] transition-colors"
-              title="Toggle Theme"
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              className="p-2 rounded-full hover:bg-[var(--bg-secondary)] text-[var(--text-secondary)] transition-colors"
             >
-              <div className="w-3 h-3 rounded-full bg-[var(--color-mint-signal)] border border-[var(--color-ink)]" />
+              {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </button>
             <button
-              onClick={handleLogout}
-              className="px-4 py-2 text-[var(--text-caption)] font-medium text-[var(--color-ink)] border border-[var(--color-ink)] bg-transparent rounded-[var(--radius-buttons)] hover:bg-[var(--color-sunshine-highlight)] transition-colors"
+              onClick={() => {
+                localStorage.removeItem('token');
+                window.location.reload();
+              }}
+              className="bg-transparent text-[var(--text-primary)] font-medium text-[var(--text-body-sm)] px-[20px] py-[10px] rounded-[var(--radius-buttons)] hover:bg-[var(--bg-secondary)] transition-colors"
             >
-              Sign Out
+              Log out
+            </button>
+            <button className="bg-[var(--accent-primary)] text-white font-medium text-[var(--text-body-sm)] px-[20px] py-[10px] rounded-[var(--radius-buttons)] shadow-sm hover:opacity-90 transition-colors">
+              Launch Studio
             </button>
           </div>
         </header>
 
       <nav className="w-full mb-[var(--section-gap)]">
         <div className="flex items-center justify-center">
-          {/* Navigation Tabs */}
-          <div className="flex gap-2 p-1">
+          <div className="hidden md:flex bg-[var(--bg-secondary)] p-1 rounded-[var(--radius-sm)] border border-[var(--border-color)]">
             <button 
               onClick={() => setActiveTab('batch')} 
-              className={cn("px-6 py-2 text-[var(--text-body-sm)] font-medium rounded-[var(--radius-tags)] transition-all border", activeTab === 'batch' ? "bg-[var(--color-sunshine-highlight)] border-[var(--color-ink)] text-[#000000]" : "bg-transparent border-transparent text-[var(--color-graphite)] hover:text-[var(--color-ink)]")}
+              className={cn("px-[20px] py-[8px] text-[var(--text-body-sm)] font-medium rounded-[var(--radius-sm)] transition-all border", activeTab === 'batch' ? "bg-[var(--accent-primary)] border-[var(--text-primary)] text-white" : "bg-transparent border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]")}
             >
               Batch Analytics
             </button>
             <button 
               onClick={() => setActiveTab('streaming')} 
-              className={cn("px-6 py-2 text-[var(--text-body-sm)] font-medium rounded-[var(--radius-tags)] transition-all border", activeTab === 'streaming' ? "bg-[var(--color-sunshine-highlight)] border-[var(--color-ink)] text-[#000000]" : "bg-transparent border-transparent text-[var(--color-graphite)] hover:text-[var(--color-ink)]")}
+              className={cn("px-[20px] py-[8px] text-[var(--text-body-sm)] font-medium rounded-[var(--radius-sm)] transition-all border", activeTab === 'streaming' ? "bg-[var(--accent-primary)] border-[var(--text-primary)] text-white" : "bg-transparent border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]")}
             >
               Live Streaming (Speed Layer)
             </button>
             <button 
               onClick={() => setActiveTab('ai')} 
-              className={cn("px-6 py-2 text-[var(--text-body-sm)] font-medium rounded-[var(--radius-tags)] transition-all border", activeTab === 'ai' ? "bg-[var(--color-sunshine-highlight)] border-[var(--color-ink)] text-[#000000]" : "bg-transparent border-transparent text-[var(--color-graphite)] hover:text-[var(--color-ink)]")}
+              className={cn("px-[20px] py-[8px] text-[var(--text-body-sm)] font-medium rounded-[var(--radius-sm)] transition-all border", activeTab === 'ai' ? "bg-[var(--accent-primary)] border-[var(--text-primary)] text-white" : "bg-transparent border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]")}
             >
               AI Insights
             </button>
@@ -532,41 +495,32 @@ function App() {
         </div>
       </nav>
 
-      <main className="container mx-auto px-4 py-8 space-y-16">
-        <section className="py-12 md:py-24 flex flex-col items-center text-center space-y-[var(--element-gap)]">
-          <div className="inline-flex items-center rounded-full border border-[var(--color-ink)] bg-[var(--color-cream-paper)] pl-1 pr-3 py-1 mb-4">
-            <div className="bg-[var(--color-sunshine-highlight)] text-[#000000] border border-[var(--color-ink)] rounded-full w-6 h-6 flex items-center justify-center text-[12px] font-medium mr-2">1</div>
-            <span className="text-[14px] font-medium tracking-[0.286em] text-[var(--color-ink)] uppercase">LAMBDA ARCHITECTURE</span>
+      <main className="w-full pb-16">
+        <section className="w-full max-w-[var(--page-max-width)] mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-24 flex flex-col items-start md:items-center md:text-center space-y-[var(--spacing-24)]">
+          <div className="inline-flex items-center rounded-[var(--radius-sm)] border border-[var(--border-color)] bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] pl-1 pr-3 py-1 mb-4">
+            <div className="bg-[var(--accent-primary)] text-white rounded-[1px] w-6 h-6 flex items-center justify-center text-[12px] font-medium mr-2">1</div>
+            <span className="text-[12px] font-medium text-[var(--color-badge-slate)] uppercase">LAMBDA ARCHITECTURE</span>
           </div>
-          <h1 className="text-[var(--text-display)] leading-[var(--leading-display)] font-medium tracking-[var(--tracking-display)] text-[var(--color-ink)] max-w-4xl">
-            Uncovering Healthcare Insights at Petabyte Scale
+          <h1 className="text-[var(--text-display)] leading-[var(--leading-display)] font-bold text-[var(--text-primary)] max-w-4xl font-fraktion">
+            Uncovering Healthcare Insights <span className="bg-[var(--accent-glow)] px-2">at Petabyte Scale</span>
           </h1>
-          <p className="text-[var(--text-body)] text-[var(--color-graphite)] max-w-[640px] leading-relaxed mx-auto">
+          <p className="text-[var(--text-heading-sm)] text-[var(--text-secondary)] max-w-[800px] leading-relaxed mx-auto font-medium">
             A full-stack Lambda Architecture demonstrating Apache Hadoop, Hive, Spark Streaming, and Grok Generative AI to analyze and predict hospital readmissions.
           </p>
         </section>
 
-        {/* Mobile Tabs */}
-        {/* Mobile Tabs */}
-        <div className="flex md:hidden gap-2 w-full overflow-x-auto mb-[var(--section-gap)] pb-2">
-            <button onClick={() => setActiveTab('batch')} className={cn("flex-1 px-4 py-2 text-[var(--text-body-sm)] font-medium rounded-[var(--radius-tags)] transition-all whitespace-nowrap border", activeTab === 'batch' ? "bg-[var(--color-sunshine-highlight)] border-[var(--color-ink)] text-[#000000]" : "bg-transparent border-transparent text-[var(--color-graphite)] hover:text-[var(--color-ink)]")}>Batch</button>
-            <button onClick={() => setActiveTab('streaming')} className={cn("flex-1 px-4 py-2 text-[var(--text-body-sm)] font-medium rounded-[var(--radius-tags)] transition-all whitespace-nowrap border", activeTab === 'streaming' ? "bg-[var(--color-sunshine-highlight)] border-[var(--color-ink)] text-[#000000]" : "bg-transparent border-transparent text-[var(--color-graphite)] hover:text-[var(--color-ink)]")}>Streaming</button>
-            <button onClick={() => setActiveTab('ai')} className={cn("flex-1 px-4 py-2 text-[var(--text-body-sm)] font-medium rounded-[var(--radius-tags)] transition-all whitespace-nowrap border", activeTab === 'ai' ? "bg-[var(--color-sunshine-highlight)] border-[var(--color-ink)] text-[#000000]" : "bg-transparent border-transparent text-[var(--color-graphite)] hover:text-[var(--color-ink)]")}>AI Insights</button>
-        </div>
-
-        {/* --- TAB: BATCH ANALYTICS --- */}
-        {activeTab === 'batch' && (
-          <div className="space-y-16 animate-in fade-in duration-500">
-            {/* Dynamic Dataset Upload */}
+        {/* Data Gateway */}
+        {!loading && !data.kpis && (
+          <div className="w-full max-w-[var(--page-max-width)] mx-auto px-4 sm:px-6 lg:px-8 space-y-[var(--spacing-80)] animate-in fade-in duration-500">
             <section className="flex flex-col items-center w-full max-w-xl mx-auto">
-              <Card className="w-full relative overflow-hidden">
-                <div className="flex flex-col items-center justify-center p-8 text-center">
-                  <div className="p-4 rounded-full border border-[var(--color-ink)] bg-[var(--color-cream-paper)] text-[var(--color-ink)] mb-4">
-                    {isUploading ? <Activity className="h-8 w-8 animate-pulse" /> : <FileUp className="h-8 w-8" />}
+              <Card className="w-full relative overflow-hidden bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)]">
+                <div className="flex flex-col items-center justify-center p-[var(--spacing-32)] text-center">
+                  <div className="p-[var(--spacing-16)] rounded-[var(--radius-sm)] border border-[var(--border-color)] bg-[var(--bg-secondary)] text-[var(--text-primary)] mb-[var(--spacing-16)]">
+                    {isUploading ? <Activity className="h-8 w-8 animate-pulse text-[var(--text-secondary)]" /> : <FileUp className="h-8 w-8 text-[var(--text-secondary)]" />}
                   </div>
-                  <h3 className="text-[var(--text-heading-sm)] font-medium mb-2">Upload Custom Dataset</h3>
-                  <p className="text-[var(--text-body)] text-[var(--color-graphite)] mb-6">
-                    Drag & drop a CSV file to instantly trigger a PySpark job in the Batch Layer.
+                  <h3 className="text-[var(--text-heading-sm)] font-bold mb-[var(--spacing-8)] text-[var(--text-primary)]">Upload Dataset to Begin</h3>
+                  <p className="text-[var(--text-body)] text-[var(--text-secondary)] mb-[var(--spacing-24)]">
+                    Please upload a healthcare CSV dataset to initialize the PySpark cluster and unlock the dashboard.
                   </p>
                   
                   <div className="relative">
@@ -579,7 +533,7 @@ function App() {
                     />
                     <button 
                       disabled={isUploading}
-                      className="bg-[var(--color-sunshine-highlight)] text-[#000000] font-medium px-6 py-3 rounded-[var(--radius-buttons)] flex items-center gap-2 border border-[#000000] hover:opacity-90 transition-opacity disabled:opacity-50"
+                      className="bg-[var(--accent-primary)] text-white font-medium px-[24px] py-[12px] rounded-[var(--radius-buttons)] flex items-center gap-2 hover:opacity-90 transition-colors disabled:opacity-50"
                     >
                       <Upload className="h-4 w-4" />
                       {isUploading ? "Uploading & Processing..." : "Select CSV File"}
@@ -588,9 +542,9 @@ function App() {
 
                   {uploadMessage && (
                     <div className={cn(
-                      "mt-6 flex items-center gap-2 text-[var(--text-caption)] font-medium animate-in fade-in duration-300",
-                      uploadStatus === 'success' ? "text-[var(--color-mint-signal)]" : 
-                      uploadStatus === 'error' ? "text-[#ef4444]" : "text-[var(--color-ink)]"
+                      "mt-[var(--spacing-24)] flex items-center gap-2 text-[var(--text-caption)] font-medium animate-in fade-in duration-300",
+                      uploadStatus === 'success' ? "text-[#10b981]" : 
+                      uploadStatus === 'error' ? "text-[#ef4444]" : "text-[var(--text-primary)]"
                     )}>
                       {uploadStatus === 'success' && <CheckCircle2 className="h-4 w-4" />}
                       {uploadStatus === 'error' && <XCircle className="h-4 w-4" />}
@@ -601,68 +555,149 @@ function App() {
                 </div>
               </Card>
             </section>
+          </div>
+        )}
 
-            <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {data.kpis && (
+          <>
+            {/* Mobile Tabs */}
+            <div className="flex md:hidden gap-[var(--spacing-8)] w-full overflow-x-auto mb-[var(--section-gap)] pb-2 px-4">
+                <button onClick={() => setActiveTab('batch')} className={cn("flex-1 px-4 py-2 text-[var(--text-body-sm)] font-medium rounded-[var(--radius-sm)] transition-all whitespace-nowrap border", activeTab === 'batch' ? "bg-[var(--accent-primary)] border-[var(--text-primary)] text-white" : "bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] border-[var(--border-color)] text-[var(--text-primary)]")}>Batch</button>
+                <button onClick={() => setActiveTab('streaming')} className={cn("flex-1 px-4 py-2 text-[var(--text-body-sm)] font-medium rounded-[var(--radius-sm)] transition-all whitespace-nowrap border", activeTab === 'streaming' ? "bg-[var(--accent-primary)] border-[var(--text-primary)] text-white" : "bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] border-[var(--border-color)] text-[var(--text-primary)]")}>Streaming</button>
+                <button onClick={() => setActiveTab('ai')} className={cn("flex-1 px-4 py-2 text-[var(--text-body-sm)] font-medium rounded-[var(--radius-sm)] transition-all whitespace-nowrap border", activeTab === 'ai' ? "bg-[var(--accent-primary)] border-[var(--text-primary)] text-white" : "bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] border-[var(--border-color)] text-[var(--text-primary)]")}>AI Insights</button>
+            </div>
+
+        {/* --- TAB: BATCH ANALYTICS --- */}
+        {activeTab === 'batch' && (
+          <motion.div 
+            initial="hidden" animate="show" 
+            variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.1 } } }}
+            className="w-full max-w-[var(--page-max-width)] mx-auto px-4 sm:px-6 lg:px-8 space-y-6"
+          >
+            {/* KPI ROW */}
+            <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
               {[
                 { label: "Records Processed", icon: Database, value: data.kpis?.total_records_processed },
                 { label: "Regions Analyzed", icon: Map, value: data.kpis?.regions_analyzed },
                 { label: "Top Disease Volume", icon: Users, value: data.kpis?.top_disease },
-                { label: "Avg Readmission Rate", icon: AlertTriangle, value: data.kpis?.avg_readmission_rate, color: "text-red-500" },
+                { label: "Avg Readmission Rate", icon: AlertTriangle, value: data.kpis?.avg_readmission_rate, color: "text-[#ff4d4d]" },
+                { label: "Total Revenue", icon: DollarSign, value: data.costs ? `$${(data.costs.total_revenue / 1000000).toFixed(1)}M` : 'N/A', color: "text-[#00f2fe]" },
               ].map((kpi, i) => (
-                <Card key={i} className="hover:-translate-y-1 transition-transform group">
-                  <div className="flex items-center justify-between pb-2">
-                    <h3 className="text-[var(--text-caption)] font-medium text-[var(--color-graphite)] uppercase tracking-wider">{kpi.label}</h3>
-                    <kpi.icon className="h-4 w-4 text-[var(--color-graphite)] group-hover:text-[var(--color-ink)] transition-colors" />
-                  </div>
-                  {loading ? <Skeleton className="h-8 w-24 mt-2" /> : (
-                    <div className={cn("text-[var(--text-heading)] font-medium text-[var(--color-ink)]", kpi.color === "text-red-500" ? "text-[var(--color-mint-signal)]" : "")}>{kpi.value}</div>
-                  )}
-                </Card>
+                <motion.div key={i} variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } } }}>
+                  <Card className="hover:-translate-y-1 transition-transform group h-full bg-[var(--bg-glass)] border border-[var(--border-color)] shadow-[var(--shadow-glass)] relative overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-br from-[var(--accent-glow)] to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div className="flex items-center justify-between pb-2 relative z-10">
+                      <h3 className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-widest">{kpi.label}</h3>
+                      <kpi.icon className="h-4 w-4 text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors" />
+                    </div>
+                    <div className="mt-2 relative z-10">
+                      <div className={cn("text-[28px] font-bold text-[var(--text-primary)] tracking-tight", kpi.color)}>{kpi.value}</div>
+                    </div>
+                  </Card>
+                </motion.div>
               ))}
             </section>
 
-            <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card className="flex flex-col h-[400px]">
-                <h3 className="text-[var(--text-heading-sm)] font-medium mb-4">Year-over-Year Disease Trend</h3>
-                <div className="flex-1 w-full">
-                  {loading ? <Skeleton className="h-full w-full" /> : (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={data.trends}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--color-graphite)" className="opacity-20" />
-                        <XAxis dataKey="year" stroke="var(--color-ink)" className="text-[12px]" />
-                        <YAxis stroke="var(--color-ink)" className="text-[12px]" />
-                        <RechartsTooltip contentStyle={{ backgroundColor: 'var(--color-cream-paper)', borderColor: 'var(--color-ink)', borderRadius: 'var(--radius-xl)' }} itemStyle={{ color: 'var(--color-ink)' }} />
-                        <Legend />
-                        <Line type="monotone" dataKey="Heart Disease" stroke="var(--color-ink)" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-                        <Line type="monotone" dataKey="Diabetes" stroke="var(--color-mint-signal)" strokeWidth={3} dot={{ r: 4 }} />
-                        <Line type="monotone" dataKey="Pneumonia" stroke="var(--color-sunshine-highlight)" strokeWidth={3} dot={{ r: 4 }} />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  )}
-                </div>
-              </Card>
-              <Card className="flex flex-col h-[400px]">
-                <h3 className="text-[var(--text-heading-sm)] font-medium mb-4">Regional Disease Burden</h3>
-                <div className="flex-1 w-full">
-                  {loading ? <Skeleton className="h-full w-full" /> : (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={data.regions}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--color-graphite)" className="opacity-20" vertical={false} />
-                        <XAxis dataKey="region" stroke="var(--color-ink)" className="text-[12px]" />
-                        <YAxis stroke="var(--color-ink)" className="text-[12px]" />
-                        <RechartsTooltip cursor={{fill: 'currentColor', opacity: 0.05}} contentStyle={{ backgroundColor: 'var(--color-cream-paper)', borderColor: 'var(--color-ink)', borderRadius: 'var(--radius-xl)' }} itemStyle={{ color: 'var(--color-ink)' }} />
-                        <Bar dataKey="cases" radius={[4, 4, 0, 0]}>
-                          {data.regions?.map((_: any, index: number) => (
-                            <Cell key={`cell-${index}`} fill={index % 2 === 0 ? 'var(--color-ink)' : 'var(--color-graphite)'} />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  )}
-                </div>
-              </Card>
+            {/* BENTO GRID */}
+            <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              
+              {/* Main Chart - Spans 2 columns */}
+              <motion.div className="lg:col-span-2" variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }}>
+                <Card className="flex flex-col h-[420px] bg-[var(--bg-glass)] border border-[var(--border-color)] shadow-[var(--shadow-glass)]">
+                  <div className="flex items-center gap-2 mb-6">
+                    <TrendingUp className="h-5 w-5 text-[var(--accent-primary)]" />
+                    <h3 className="text-[var(--text-body)] font-semibold">Year-over-Year Disease Trend</h3>
+                  </div>
+                  <div className="flex-1 w-full relative">
+                    {loading ? <Skeleton className="h-full w-full" /> : (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={data.trends}>
+                          <defs>
+                            <linearGradient id="colorHeart" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#ff4d4d" stopOpacity={0.8}/>
+                              <stop offset="95%" stopColor="#ff4d4d" stopOpacity={0}/>
+                            </linearGradient>
+                            <linearGradient id="colorDiabetes" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#00f2fe" stopOpacity={0.8}/>
+                              <stop offset="95%" stopColor="#00f2fe" stopOpacity={0}/>
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" className="opacity-30" vertical={false} />
+                          <XAxis dataKey="year" stroke="var(--text-secondary)" className="text-[12px]" tickLine={false} axisLine={false} />
+                          <YAxis stroke="var(--text-secondary)" className="text-[12px]" tickLine={false} axisLine={false} />
+                          <RechartsTooltip contentStyle={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)', borderRadius: '12px', color: 'var(--text-primary)', boxShadow: 'var(--shadow-neon)' }} itemStyle={{ color: 'var(--text-primary)' }} />
+                          <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
+                          <Line type="monotone" dataKey="Heart Disease" stroke="#ff4d4d" strokeWidth={3} dot={false} activeDot={{ r: 6, fill: '#ff4d4d', stroke: 'var(--bg-primary)', strokeWidth: 2 }} />
+                          <Line type="monotone" dataKey="Diabetes" stroke="#00f2fe" strokeWidth={3} dot={false} activeDot={{ r: 6, fill: '#00f2fe', stroke: 'var(--bg-primary)', strokeWidth: 2 }} />
+                          <Line type="monotone" dataKey="Pneumonia" stroke="#a855f7" strokeWidth={3} dot={false} activeDot={{ r: 6, fill: '#a855f7', stroke: 'var(--bg-primary)', strokeWidth: 2 }} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    )}
+                  </div>
+                </Card>
+              </motion.div>
+
+              {/* Secondary Chart - Demographics */}
+              <motion.div className="lg:col-span-1" variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }}>
+                <Card className="flex flex-col h-[420px] bg-[var(--bg-glass)] border border-[var(--border-color)] shadow-[var(--shadow-glass)]">
+                  <div className="flex items-center gap-2 mb-6">
+                    <HeartPulse className="h-5 w-5 text-[var(--accent-primary)]" />
+                    <h3 className="text-[var(--text-body)] font-semibold">Demographics Risk (Readmission Rate)</h3>
+                  </div>
+                  <div className="flex-1 w-full">
+                    {loading ? <Skeleton className="h-full w-full" /> : (data.demographics && data.demographics.length > 0 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={data.demographics} layout="vertical" margin={{ left: -20 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" className="opacity-30" horizontal={true} vertical={false} />
+                          <XAxis type="number" stroke="var(--text-secondary)" className="text-[12px]" tickLine={false} axisLine={false} />
+                          <YAxis dataKey="age" type="category" stroke="var(--text-secondary)" className="text-[12px]" tickLine={false} axisLine={false} />
+                          <RechartsTooltip cursor={{fill: 'var(--bg-secondary)', opacity: 0.5}} contentStyle={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)', borderRadius: '12px', color: 'var(--text-primary)', boxShadow: 'var(--shadow-neon)' }} />
+                          <Legend iconType="circle" />
+                          <Bar dataKey="Male" fill="#00f2fe" radius={[0, 4, 4, 0]} barSize={12} />
+                          <Bar dataKey="Female" fill="#a855f7" radius={[0, 4, 4, 0]} barSize={12} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="h-full flex flex-col items-center justify-center text-[var(--text-secondary)] text-sm">
+                        <PieChart className="h-8 w-8 mb-2 opacity-50" />
+                        No demographic data found in CSV
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              </motion.div>
+
+              {/* Bottom Row - Regional Burden */}
+              <motion.div className="lg:col-span-3" variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }}>
+                <Card className="flex flex-col h-[350px] bg-[var(--bg-glass)] border border-[var(--border-color)] shadow-[var(--shadow-glass)]">
+                  <div className="flex items-center gap-2 mb-6">
+                    <Map className="h-5 w-5 text-[var(--accent-primary)]" />
+                    <h3 className="text-[var(--text-body)] font-semibold">Regional Disease Burden vs Readmissions</h3>
+                  </div>
+                  <div className="flex-1 w-full">
+                    {loading ? <Skeleton className="h-full w-full" /> : (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={data.regions}>
+                          <defs>
+                            <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="var(--accent-primary)" stopOpacity={1}/>
+                              <stop offset="100%" stopColor="var(--accent-primary)" stopOpacity={0.2}/>
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" className="opacity-30" vertical={false} />
+                          <XAxis dataKey="region" stroke="var(--text-secondary)" className="text-[12px]" tickLine={false} axisLine={false} />
+                          <YAxis stroke="var(--text-secondary)" className="text-[12px]" tickLine={false} axisLine={false} />
+                          <RechartsTooltip cursor={{fill: 'var(--bg-secondary)', opacity: 0.5}} contentStyle={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)', borderRadius: '12px', color: 'var(--text-primary)', boxShadow: 'var(--shadow-neon)' }} />
+                          <Bar dataKey="cases" fill="url(#barGradient)" radius={[6, 6, 0, 0]} maxBarSize={60} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    )}
+                  </div>
+                </Card>
+              </motion.div>
+
             </section>
-          </div>
+          </motion.div>
         )}
 
         {/* --- TAB: STREAMING SPEED LAYER --- */}
@@ -674,31 +709,30 @@ function App() {
 
         {/* --- TAB: AI INSIGHTS & PREDICTION --- */}
         {activeTab === 'ai' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in fade-in duration-500">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in fade-in duration-500 max-w-[var(--page-max-width)] mx-auto px-4 sm:px-6 lg:px-8">
             <section className="space-y-6">
               <div className="flex items-center gap-2 border-b border-border pb-2">
                 <Target className="h-6 w-6 text-primary" />
-                <h2 className="text-2xl font-semibold tracking-tight">AI Readmission Predictor</h2>
+                <h2 className="text-2xl font-semibold tracking-tight text-[var(--text-primary)]">AI Readmission Predictor</h2>
               </div>
               <Card>
-                <form onSubmit={handlePredict} className="space-y-4">
+                <form onSubmit={handlePredict} className="space-y-[var(--spacing-16)]">
                   <div>
-                    <label className="block text-[var(--text-caption)] font-medium mb-1 text-[var(--color-graphite)] uppercase tracking-wider">Disease Category</label>
+                    <label className="block text-[var(--text-caption)] font-medium mb-[var(--spacing-8)] text-[var(--text-secondary)] uppercase tracking-wider">Disease Category</label>
                     <select 
-                      className="w-full bg-transparent border border-[var(--color-ink)] rounded-[var(--radius-inputs)] p-3 text-[var(--text-body-sm)] focus:outline-none"
+                      className="w-full bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] border border-[var(--border-color)] rounded-[var(--radius-inputs)] p-[var(--spacing-16)] text-[var(--text-body-sm)] focus:outline-none focus:border-[var(--text-primary)] transition-colors text-[var(--text-primary)]"
                       value={mlForm.disease}
                       onChange={e => setMlForm({...mlForm, disease: e.target.value})}
                     >
                       <option>Heart Disease</option>
                       <option>Diabetes</option>
-                      <option>Sepsis</option>
                       <option>Pneumonia</option>
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[var(--text-caption)] font-medium mb-1 text-[var(--color-graphite)] uppercase tracking-wider">Age Band</label>
+                    <label className="block text-[var(--text-caption)] font-medium mb-[var(--spacing-8)] text-[var(--text-secondary)] uppercase tracking-wider">Age Band</label>
                     <select 
-                      className="w-full bg-transparent border border-[var(--color-ink)] rounded-[var(--radius-inputs)] p-3 text-[var(--text-body-sm)] focus:outline-none"
+                      className="w-full bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] border border-[var(--border-color)] rounded-[var(--radius-inputs)] p-[var(--spacing-16)] text-[var(--text-body-sm)] focus:outline-none focus:border-[var(--text-primary)] transition-colors text-[var(--text-primary)]"
                       value={mlForm.age_band}
                       onChange={e => setMlForm({...mlForm, age_band: e.target.value})}
                     >
@@ -706,38 +740,39 @@ function App() {
                       <option>51-60</option>
                       <option>61-70</option>
                       <option>71-80</option>
-                      <option>81-90</option>
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[var(--text-caption)] font-medium mb-1 text-[var(--color-graphite)] uppercase tracking-wider">Treatment Cost ($)</label>
+                    <label className="block text-[var(--text-caption)] font-medium mb-[var(--spacing-8)] text-[var(--text-secondary)] uppercase tracking-wider">Treatment Cost ($)</label>
                     <input 
-                      type="number"
-                      className="w-full bg-transparent border border-[var(--color-ink)] rounded-[var(--radius-inputs)] p-3 text-[var(--text-body-sm)] focus:outline-none"
+                      type="number" 
+                      className="w-full bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] border border-[var(--border-color)] rounded-[var(--radius-inputs)] p-[var(--spacing-16)] text-[var(--text-body-sm)] focus:outline-none focus:border-[var(--text-primary)] transition-colors text-[var(--text-primary)]"
                       value={mlForm.treatment_cost}
-                      onChange={e => setMlForm({...mlForm, treatment_cost: Number(e.target.value)})}
+                      onChange={e => setMlForm({...mlForm, treatment_cost: parseInt(e.target.value)})}
                     />
                   </div>
                   <button 
                     type="submit" 
                     disabled={predicting}
-                    className="w-full bg-[var(--color-sunshine-highlight)] text-[#000000] border border-[#000000] rounded-[var(--radius-buttons)] font-medium px-6 py-4 mt-8 transition-opacity hover:opacity-90 disabled:opacity-50"
+                    className="w-full bg-[var(--accent-primary)] text-white rounded-[var(--radius-buttons)] font-medium px-[var(--spacing-24)] py-[12px] mt-[var(--spacing-24)] hover:opacity-90 transition-colors disabled:opacity-50 shadow-sm"
                   >
-                    {predicting ? "Running Inference..." : "Predict Readmission Risk"}
+                    {predicting ? "Running Model..." : "Predict Readmission Risk"}
                   </button>
                 </form>
               </Card>
               {prediction && (
-                <Card className="flex flex-col justify-center items-center text-center p-8 animate-in zoom-in duration-300">
-                  <h3 className="text-[var(--text-caption)] font-medium text-[var(--color-graphite)] uppercase tracking-wider">Prediction Result</h3>
-                  <div className={cn(
-                    "text-[var(--text-display)] font-medium tracking-[var(--tracking-display)] mt-2 text-[var(--color-ink)]",
-                    prediction.prediction === "High Risk" ? "text-[#ef4444]" : "text-[var(--color-mint-signal)]"
-                  )}>
-                    {prediction.probability}
-                  </div>
-                  <div className="inline-block px-4 py-1 mt-4 rounded-full bg-[var(--color-cream-paper)] border border-[var(--color-ink)] text-[var(--text-body-sm)] font-medium">
-                    {prediction.prediction}
+                <Card className="flex flex-col items-center justify-center text-center p-[var(--spacing-32)] border border-[var(--border-color)] bg-[var(--bg-secondary)]">
+                  <div className="animate-in zoom-in duration-300">
+                    <h3 className="text-[var(--text-caption)] font-medium text-[var(--text-secondary)] uppercase tracking-wider">Prediction Result</h3>
+                    <div className={cn(
+                      "text-[var(--text-display)] font-bold mt-[var(--spacing-16)] mb-[var(--spacing-8)]",
+                      prediction.prediction === "High Risk" ? "text-[#ef4444]" : "text-[#10b981]"
+                    )}>
+                      {prediction.probability}
+                    </div>
+                    <div className="inline-block px-[var(--spacing-16)] py-[var(--spacing-8)] mt-[var(--spacing-16)] rounded-[var(--radius-sm)] bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] border border-[var(--border-color)] text-[var(--text-body-sm)] font-medium text-[var(--text-primary)] shadow-sm">
+                      {prediction.prediction}
+                    </div>
                   </div>
                 </Card>
               )}
@@ -751,6 +786,8 @@ function App() {
               <GrokChatbot />
             </section>
           </div>
+        )}
+          </>
         )}
       </main>
       

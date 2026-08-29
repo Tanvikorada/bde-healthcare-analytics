@@ -797,27 +797,7 @@ function App() {
               </div>
               <GrokChatbot />
             </section>
-          </motion.div>
-        )}
-
-        {/* --- TAB: AI INSIGHTS --- */}
-        {activeTab === 'ai' && (
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-            className="w-full max-w-[var(--page-max-width)] mx-auto px-4 sm:px-6 lg:px-8 space-y-6"
-          >
-            <Card className="p-8 bg-[var(--bg-glass)] border border-[var(--border-color)] shadow-[var(--shadow-glass)] flex flex-col items-center text-center">
-              <Bot className="h-16 w-16 text-[var(--accent-primary)] mb-6" />
-              <h2 className="text-3xl font-bold text-[var(--text-primary)] mb-4 tracking-tight">AI Data Studio</h2>
-              <p className="text-[var(--text-secondary)] max-w-xl text-[var(--text-body-lg)] leading-relaxed">
-                Connect HealthHadoop AI to your Big Data pipeline. Ask complex clinical questions and get instant, context-aware insights.
-              </p>
-              <button className="mt-8 px-8 py-3 bg-[var(--accent-primary)] hover:bg-[var(--accent-hover)] text-white rounded-[var(--radius-md)] font-medium transition-all shadow-[var(--shadow-neon)] hover:shadow-[var(--shadow-neon-strong)] flex items-center gap-2 group">
-                <Wand2 className="h-5 w-5 group-hover:rotate-12 transition-transform" />
-                Launch Studio
-              </button>
-            </Card>
-          </motion.div>
+          </div>
         )}
       </main>
       
