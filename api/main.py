@@ -45,10 +45,10 @@ except Exception as e:
     rf_model = None
     print(f"Warning: ML Models not found. Ensure train_model.py was run. Error: {e}")
 
-# Initialize xAI (Grok) client
+# Initialize OpenAI-compatible client for Groq
 client = AsyncOpenAI(
-    api_key=os.getenv("GROK_API_KEY", "dummy_key_if_missing"),
-    base_url="https://api.x.ai/v1",
+    api_key=os.getenv("GROK_API_KEY"),
+    base_url="https://api.groq.com/openai/v1",
 )
 
 # --- STARTUP EVENT ---
@@ -204,10 +204,6 @@ class ChatRequest(BaseModel):
 
 @app.post("/api/ask-grok")
 async def ask_grok(request: ChatRequest, current_user: dict = Depends(get_current_user)):
-    api_key = os.getenv("GROK_API_KEY")
-    if not api_key or api_key == "your_api_key_here":
-        return {"reply": "Please set your GROK_API_KEY in the backend .env file to talk to me!"}
-
     kpis = app.state.dataset.get("kpis", {})
     trends = app.state.dataset.get("trends", [])
     
@@ -223,7 +219,7 @@ async def ask_grok(request: ChatRequest, current_user: dict = Depends(get_curren
     
     try:
         completion = await client.chat.completions.create(
-            model="grok-beta",
+            model="llama-3.1-8b-instant",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": request.query}
@@ -231,4 +227,4 @@ async def ask_grok(request: ChatRequest, current_user: dict = Depends(get_curren
         )
         return {"reply": completion.choices[0].message.content}
     except Exception as e:
-        return {"reply": f"Grok API Error: {str(e)}"}
+        return {"reply": f"Groq API Error: {str(e)}"}
