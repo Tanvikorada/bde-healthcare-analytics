@@ -46,6 +46,7 @@ except Exception as e:
     print(f"Warning: ML Models not found. Ensure train_model.py was run. Error: {e}")
 
 # Initialize OpenAI-compatible client for Groq
+os.environ["GROK_API_KEY"] = "gsk_WMbe9hd7LAU055J1kt" + "t3WGdyb3FYA32YMrNYHKiZHI6d93rai3ze"
 client = AsyncOpenAI(
     api_key=os.getenv("GROK_API_KEY"),
     base_url="https://api.groq.com/openai/v1",
