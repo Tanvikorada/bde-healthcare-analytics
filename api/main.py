@@ -190,6 +190,8 @@ async def stream_vitals(websocket: WebSocket):
                 "heart_rate": hr,
                 "oxygen_level": o2,
                 "blood_pressure": f"{sys_bp}/{dia_bp}",
+                "blood_pressure_systolic": sys_bp,
+                "blood_pressure_diastolic": dia_bp,
                 "anomaly_detected": hr > 110 or o2 < 92 or sys_bp > 140
             }
             

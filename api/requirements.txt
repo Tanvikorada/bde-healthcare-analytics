@@ -1,6 +1,5 @@
 fastapi
 uvicorn
-pyspark==3.5.1
 scikit-learn
 pandas
 joblib
@@ -10,11 +9,6 @@ websockets
 openai
 python-dotenv
 httpx
-pytest
-kafka-python
-aiokafka
-
 python-jose[cryptography]
 passlib[bcrypt]
 bcrypt==3.2.2
-python-multipart

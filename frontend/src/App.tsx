@@ -53,47 +53,87 @@ const Skeleton = ({ className }: { className?: string }) => (
 const LiveStreaming = () => {
   const [streamData, setStreamData] = useState<any[]>([]);
   const [status, setStatus] = useState('Connecting...');
+  const [latestVital, setLatestVital] = useState<any>(null);
+  const [anomalyAlert, setAnomalyAlert] = useState(false);
+  const tickRef = useRef(0);
 
   useEffect(() => {
     const ws = new WebSocket(`${WS_BASE}/api/stream/vitals`);
     
-    ws.onopen = () => setStatus('Connected to Kafka/Spark Streaming Speed Layer');
+    ws.onopen = () => setStatus('Live — Real-Time Vitals Stream');
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
-      setStreamData(prev => [...prev.slice(-19), data]);
+      tickRef.current += 1;
+      const entry = { ...data, tick: tickRef.current };
+      setLatestVital(entry);
+      setAnomalyAlert(!!data.anomaly_detected);
+      setStreamData(prev => [...prev.slice(-29), entry]);
     };
-    ws.onerror = () => setStatus('WebSocket Error (Backend Offline)');
+    ws.onerror = () => setStatus('WebSocket Error — Backend Offline');
     ws.onclose = () => setStatus('Disconnected');
 
     return () => ws.close();
   }, []);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between border-b border-border pb-2">
+    <div className="space-y-4 w-full max-w-[var(--page-max-width)] mx-auto px-4 sm:px-6 lg:px-8 pb-8">
+      {/* Header */}
+      <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-3">
         <div className="flex items-center gap-2">
-          <Radio className="h-6 w-6 text-red-500 animate-pulse" />
-          <h2 className="text-2xl font-semibold tracking-tight">Live ICU Vitals (Speed Layer)</h2>
+          <Radio className="h-5 w-5 text-red-500 animate-pulse" />
+          <h2 className="text-xl font-bold tracking-tight text-[var(--text-primary)]">Live ICU Vitals Monitor</h2>
         </div>
-        <div className={cn("text-sm font-medium px-3 py-1 rounded-full", status.includes('Connected') ? "bg-green-500/10 text-green-500" : "bg-red-500/10 text-red-500")}>
+        <div className={cn("text-xs font-semibold px-3 py-1 rounded-full border", status.includes('Live') ? "bg-green-500/10 text-green-400 border-green-500/30" : "bg-red-500/10 text-red-400 border-red-500/30")}>
           {status}
         </div>
       </div>
-      
-      <Card className="flex flex-col h-[500px]">
-        <h3 className="text-lg font-semibold mb-2">Real-Time Patient Vitals Stream</h3>
-        <p className="text-sm text-muted-foreground mb-6">Simulating a Kafka stream ingested by Spark Streaming for real-time anomaly detection.</p>
-        <div className="flex-1 w-full relative">
+
+      {/* Anomaly Alert Banner */}
+      {anomalyAlert && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+          className="flex items-center gap-3 bg-red-500/10 border border-red-500/40 text-red-400 rounded-lg px-4 py-3 font-semibold text-sm"
+        >
+          <AlertTriangle className="h-5 w-5 animate-pulse flex-shrink-0" />
+          <span>ANOMALY DETECTED — Patient vitals outside safe thresholds! Immediate review required.</span>
+        </motion.div>
+      )}
+
+      {/* Live Stats Cards */}
+      {latestVital && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {[
+            { label: "Heart Rate", value: `${latestVital.heart_rate} bpm`, alert: latestVital.heart_rate > 110, color: "#ef4444" },
+            { label: "SpO2", value: `${latestVital.oxygen_level}%`, alert: latestVital.oxygen_level < 92, color: "#10b981" },
+            { label: "BP (Systolic)", value: `${latestVital.blood_pressure_systolic} mmHg`, alert: latestVital.blood_pressure_systolic > 140, color: "#3b82f6" },
+            { label: "Patient ID", value: latestVital.patient_id, alert: false, color: "var(--text-secondary)" },
+          ].map((stat, i) => (
+            <Card key={i} className={cn("text-center transition-all", stat.alert ? "border-red-500/50 shadow-[0_0_12px_rgba(239,68,68,0.3)]" : "")}>
+              <div className="text-xs text-[var(--text-secondary)] uppercase tracking-widest mb-1">{stat.label}</div>
+              <div className="text-2xl font-bold" style={{ color: stat.alert ? "#ef4444" : stat.color }}>{stat.value}</div>
+              {stat.alert && <div className="text-xs text-red-400 mt-1 animate-pulse">CRITICAL</div>}
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Chart */}
+      <Card className="h-[380px] flex flex-col">
+        <div className="mb-3">
+          <h3 className="text-sm font-semibold text-[var(--text-primary)]">Real-Time Vitals Chart</h3>
+          <p className="text-xs text-[var(--text-secondary)] mt-0.5">Heart Rate (bpm) · BP Systolic (mmHg) · SpO2 (%)</p>
+        </div>
+        <div className="flex-1 w-full">
           {streamData.length === 0 ? (
-            <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">Waiting for data stream...</div>
+            <div className="h-full flex items-center justify-center text-[var(--text-secondary)] text-sm">Connecting to stream...</div>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={streamData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="opacity-10" />
-                <XAxis dataKey="timestamp" stroke="currentColor" className="opacity-50 text-xs" />
-                <YAxis stroke="currentColor" className="opacity-50 text-xs" domain={['dataMin - 10', 'dataMax + 10']} />
-                <RechartsTooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }} />
-                <Legend />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" opacity={0.3} vertical={false} />
+                <XAxis dataKey="tick" stroke="var(--text-secondary)" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} label={{ value: 'Time (ticks)', position: 'insideBottomRight', offset: -5, fontSize: 10, fill: 'var(--text-secondary)' }} />
+                <YAxis stroke="var(--text-secondary)" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} domain={[50, 180]} />
+                <RechartsTooltip contentStyle={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)', borderRadius: '8px', color: 'var(--text-primary)', fontSize: '12px' }} />
+                <Legend wrapperStyle={{ fontSize: '11px' }} />
                 <Line type="monotone" dataKey="heart_rate" name="Heart Rate (bpm)" stroke="#ef4444" strokeWidth={2} isAnimationActive={false} dot={false} />
                 <Line type="monotone" dataKey="blood_pressure_systolic" name="BP Systolic (mmHg)" stroke="#3b82f6" strokeWidth={2} isAnimationActive={false} dot={false} />
                 <Line type="monotone" dataKey="oxygen_level" name="SpO2 (%)" stroke="#10b981" strokeWidth={2} isAnimationActive={false} dot={false} />
@@ -106,8 +146,9 @@ const LiveStreaming = () => {
   );
 };
 
+
 const GrokChatbot = () => {
-  const [messages, setMessages] = useState([{ role: 'assistant', content: "Hello! I am HealthHadoop AI, powered by xAI Grok. I have full context of the Apache Spark analysis on this dashboard. What would you like to know?" }]);
+  const [messages, setMessages] = useState([{ role: 'assistant', content: "Hello! I am HealthHadoop AI, powered by Groq LLaMA 3.1. I have full context of the analytics on this dashboard. What would you like to know?" }]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -145,19 +186,28 @@ const GrokChatbot = () => {
       const data = await response.json();
       setMessages(prev => [...prev, { role: 'assistant', content: data.reply || 'Sorry, I could not process that.' }]);
     } catch (err) {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Network Error connecting to Grok API.' }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Network Error connecting to AI backend.' }]);
     }
     setLoading(false);
   };
 
   return (
     <Card className="flex flex-col h-[600px] p-0 overflow-hidden">
-      <div className="bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] border-b border-[var(--border-color)] p-4 flex items-center gap-2 rounded-t-[var(--radius-sm)]">
-        <MessageSquare className="h-5 w-5 text-[var(--text-primary)]" />
-        <h3 className="text-[var(--text-heading-sm)] font-bold tracking-tight text-[var(--text-primary)]">Grok Data Assistant</h3>
+      <div className="bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] border-b border-[var(--border-color)] p-4 flex items-center justify-between rounded-t-[var(--radius-sm)]">
+        <div className="flex items-center gap-2">
+          <MessageSquare className="h-5 w-5 text-[var(--text-primary)]" />
+          <h3 className="text-[var(--text-heading-sm)] font-bold tracking-tight text-[var(--text-primary)]">HealthHadoop AI Assistant</h3>
+          <span className="text-[10px] px-2 py-0.5 bg-[var(--accent-primary)]/20 text-[var(--accent-primary)] rounded-full font-semibold">Groq LLaMA 3.1</span>
+        </div>
+        <button
+          onClick={() => setMessages([{ role: 'assistant', content: "Hello! I am HealthHadoop AI, powered by Groq LLaMA 3.1. I have full context of the analytics on this dashboard. What would you like to know?" }])}
+          className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors px-2 py-1 rounded hover:bg-[var(--bg-secondary)]"
+        >
+          Clear chat
+        </button>
       </div>
       
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[var(--bg-secondary)]">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4 bg-[var(--bg-secondary)]">
         {messages.map((msg, idx) => (
           <div key={idx} className={cn("flex", msg.role === 'user' ? "justify-end" : "justify-start")}>
             <div className={cn(
@@ -184,7 +234,7 @@ const GrokChatbot = () => {
           type="text" 
           value={input}
           onChange={e => setInput(e.target.value)}
-          placeholder="Ask Grok about anomalies, predictions, or trends..."
+          placeholder="Ask about trends, anomalies, readmissions..."
           className="flex-1 bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] border border-[var(--border-color)] rounded-[var(--radius-inputs)] px-4 py-3 text-[var(--text-body-sm)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--text-primary)] transition-colors"
         />
         <button type="submit" disabled={loading} className="bg-[var(--accent-primary)] text-white px-[20px] py-[10px] rounded-[var(--radius-buttons)] hover:opacity-90 disabled:opacity-50 transition-colors shadow-sm">
@@ -415,7 +465,7 @@ function App() {
                 className="w-full bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] border border-[var(--border-color)] rounded-[var(--radius-inputs)] p-[var(--spacing-16)] text-[var(--text-body-sm)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--text-primary)] transition-colors"
               />
             </div>
-            {loginError && <p className="text-[var(--text-primary)] text-[var(--text-body-sm)] font-medium">{loginError}</p>}
+            {loginError && <p className="text-red-500 text-[var(--text-body-sm)] font-medium">{loginError}</p>}
             <button 
               type="submit" 
               className="w-full bg-[var(--accent-primary)] text-white rounded-[var(--radius-buttons)] font-medium px-[var(--spacing-24)] py-[12px] shadow-sm hover:opacity-90 transition-colors"
@@ -423,8 +473,8 @@ function App() {
               Sign In
             </button>
           </form>
-          <div className="text-center text-[var(--text-caption)] text-[var(--color-steel)] mt-[var(--spacing-24)]">
-            Default credentials: admin / admin123
+          <div className="text-center text-[var(--text-caption)] text-[var(--text-secondary)] mt-[var(--spacing-24)]">
+            BDE Healthcare Analytics — Capstone Project
           </div>
         </Card>
       </div>
@@ -459,6 +509,20 @@ function App() {
             >
               {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </button>
+            {/* Persistent Upload Button */}
+            <label className="relative cursor-pointer">
+              <input
+                type="file"
+                accept=".csv,text/csv,application/csv,application/x-csv,text/x-csv"
+                onChange={handleFileUpload}
+                disabled={isUploading}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+              />
+              <div className="flex items-center gap-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-medium text-[var(--text-body-sm)] px-[16px] py-[10px] rounded-[var(--radius-buttons)] hover:bg-[var(--bg-secondary)] transition-colors border border-[var(--border-color)]">
+                <Upload className="h-4 w-4" />
+                {isUploading ? 'Processing...' : 'Upload CSV'}
+              </div>
+            </label>
             <button
               onClick={() => {
                 localStorage.removeItem('token');
@@ -468,7 +532,10 @@ function App() {
             >
               Log out
             </button>
-            <button className="bg-[var(--accent-primary)] text-white font-medium text-[var(--text-body-sm)] px-[20px] py-[10px] rounded-[var(--radius-buttons)] shadow-sm hover:opacity-90 transition-colors">
+            <button
+              onClick={() => setActiveTab('ai')}
+              className="bg-[var(--accent-primary)] text-white font-medium text-[var(--text-body-sm)] px-[20px] py-[10px] rounded-[var(--radius-buttons)] shadow-sm hover:opacity-90 transition-colors"
+            >
               Launch Studio
             </button>
           </div>
@@ -739,6 +806,8 @@ function App() {
                       <option>Heart Disease</option>
                       <option>Diabetes</option>
                       <option>Pneumonia</option>
+                      <option>Sepsis</option>
+                      <option>Asthma</option>
                     </select>
                   </div>
                   <div>
