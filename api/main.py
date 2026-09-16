@@ -113,6 +113,18 @@ async def upload_dataset(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"Data Processing Failed: {str(e)}")
 
 # --- DATA ENDPOINTS ---
+@app.get("/api/debug")
+def debug_filesystem():
+    import os
+    return {
+        "cwd": os.getcwd(),
+        "app_files": os.listdir("/app") if os.path.exists("/app") else "No /app",
+        "api_files": os.listdir("/app/api") if os.path.exists("/app/api") else "No /app/api",
+        "parent_files": os.listdir("..") if os.path.exists("..") else "No parent",
+        "dataset_keys": list(app.state.dataset.keys()) if hasattr(app.state, "dataset") else None,
+        "test_csv_exists": os.path.exists("../test.csv") or os.path.exists("/app/test.csv")
+    }
+
 def get_state_data(key: str):
     data = app.state.dataset.get(key)
     if data is None:
@@ -234,7 +246,7 @@ async def ask_grok(request: ChatRequest, current_user: dict = Depends(get_curren
     
     try:
         completion = await client.chat.completions.create(
-            model="llama3-8b-8192",
+            model="openai/gpt-oss-20b",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": request.query}
