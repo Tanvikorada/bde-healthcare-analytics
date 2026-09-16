@@ -56,16 +56,28 @@ client = AsyncOpenAI(
 @app.on_event("startup")
 async def load_initial_data():
     """Load default dataset into memory on startup so dashboard is never empty"""
-    default_csv = os.path.abspath(os.path.join(os.path.dirname(__file__), "../test.csv"))
-    if os.path.exists(default_csv):
-        try:
-            df = pd.read_csv(default_csv)
-            app.state.dataset = process_dataframe(df)
-            print("Successfully loaded test.csv into memory.")
-        except Exception as e:
-            print(f"Failed to load test.csv: {e}")
-    else:
-        print("No test.csv found, starting with empty state.")
+    # Try several path options to handle both local dev and Docker environments
+    candidates = [
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "../test.csv")),  # Docker: /app/test.csv
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "test.csv")),     # alongside main.py
+        "/app/test.csv",                                                            # explicit docker path
+        "test.csv",                                                                 # cwd fallback
+    ]
+    
+    loaded = False
+    for path in candidates:
+        if os.path.exists(path):
+            try:
+                df = pd.read_csv(path)
+                app.state.dataset = process_dataframe(df)
+                print(f"Loaded default dataset from: {path} ({len(df)} rows)")
+                loaded = True
+                break
+            except Exception as e:
+                print(f"Failed to load {path}: {e}")
+    
+    if not loaded:
+        print(f"WARNING: No default dataset found. Tried: {candidates}")
 
 # --- AUTH ---
 @app.post("/api/token")
@@ -222,7 +234,7 @@ async def ask_grok(request: ChatRequest, current_user: dict = Depends(get_curren
     
     try:
         completion = await client.chat.completions.create(
-            model="llama-3.1-8b-instant",
+            model="llama3-8b-8192",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": request.query}

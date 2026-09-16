@@ -15,13 +15,12 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/token")
 
 # --- Mock Database ---
-# For the portfolio, we use a hardcoded admin user. 
-# In production, this would hit PostgreSQL/MongoDB.
+# Pre-computed bcrypt hash of "admin123" — avoids passlib/bcrypt version conflicts at runtime
 mock_users_db = {
     "admin": {
         "username": "admin",
         "full_name": "Healthcare Administrator",
-        "hashed_password": pwd_context.hash("admin123")
+        "hashed_password": "$2b$12$jGXiJXyx4wXlrkPeWE8xjemFntaHMPBzApGCOuYgTl.o3Hq9B6MpG"
     }
 }
 
