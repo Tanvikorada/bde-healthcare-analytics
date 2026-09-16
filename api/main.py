@@ -58,8 +58,9 @@ async def load_initial_data():
     """Load default dataset into memory on startup so dashboard is never empty"""
     # Try several path options to handle both local dev and Docker environments
     candidates = [
-        os.path.abspath(os.path.join(os.path.dirname(__file__), "../test.csv")),  # Docker: /app/test.csv
-        os.path.abspath(os.path.join(os.path.dirname(__file__), "test.csv")),     # alongside main.py
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "test.csv")),     # inside api/
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "../test.csv")),  # Docker root /app/test.csv
+        "/app/api/test.csv",                                                        # absolute api path
         "/app/test.csv",                                                            # explicit docker path
         "test.csv",                                                                 # cwd fallback
     ]

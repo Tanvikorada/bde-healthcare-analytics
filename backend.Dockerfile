@@ -11,7 +11,8 @@ WORKDIR /app
 COPY api/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the API, Backend directories and default dataset
+# Force cache bust for API and backend code
+ARG CACHEBUST=1
 COPY api/ ./api/
 COPY backend/ ./backend/
 COPY test.csv ./test.csv
