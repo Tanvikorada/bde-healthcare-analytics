@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from openai import AsyncOpenAI
 import joblib
 from fastapi.security import OAuth2PasswordRequestForm
-from auth import create_access_token, verify_password, get_user, mock_users_db, get_current_user, ACCESS_TOKEN_EXPIRE_MINUTES, timedelta, Depends
+from auth import create_access_token, verify_password, get_user, get_current_user, ACCESS_TOKEN_EXPIRE_MINUTES, timedelta, Depends
 
 # Add parent directory to path so we can import backend
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -80,19 +80,56 @@ async def load_initial_data():
     if not loaded:
         print(f"WARNING: No default dataset found. Tried: {candidates}")
 
+from sqlalchemy.orm import Session
+from database import engine, Base, get_db
+import models
+from auth import get_password_hash
+
+# Create tables
+Base.metadata.create_all(bind=engine)
+
+def seed_admin_user():
+    db = next(get_db())
+    admin_user = db.query(models.User).filter(models.User.username == "admin").first()
+    if not admin_user:
+        hashed_pw = get_password_hash("admin123")
+        new_admin = models.User(username="admin", full_name="Healthcare Administrator", hashed_password=hashed_pw)
+        db.add(new_admin)
+        db.commit()
+
+seed_admin_user()
+
+class UserCreate(BaseModel):
+    username: str
+    password: str
+    full_name: str
+
 # --- AUTH ---
+@app.post("/api/register")
+async def register_user(user: UserCreate, db: Session = Depends(get_db)):
+    db_user = db.query(models.User).filter(models.User.username == user.username).first()
+    if db_user:
+        raise HTTPException(status_code=400, detail="Username already registered")
+    
+    hashed_password = get_password_hash(user.password)
+    new_user = models.User(username=user.username, full_name=user.full_name, hashed_password=hashed_password)
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    return {"message": "User registered successfully"}
+
 @app.post("/api/token")
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
-    user = get_user(mock_users_db, form_data.username)
-    if not user or not verify_password(form_data.password, user["hashed_password"]):
+async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    user = get_user(db, form_data.username)
+    if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
+            status_code=401,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user["username"]}, expires_delta=access_token_expires
+        data={"sub": user.username}, expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
@@ -162,6 +199,8 @@ class PatientData(BaseModel):
     disease: str
     treatment_cost: float
     gender: str
+    length_of_stay: int
+    previous_admissions: int
 
 @app.post("/api/predict")
 def predict_readmission(data: PatientData, current_user: dict = Depends(get_current_user)):
@@ -173,7 +212,9 @@ def predict_readmission(data: PatientData, current_user: dict = Depends(get_curr
             'age_band': data.age_band,
             'disease': data.disease,
             'gender': data.gender,
-            'treatment_cost': data.treatment_cost
+            'treatment_cost': data.treatment_cost,
+            'length_of_stay': data.length_of_stay,
+            'previous_admissions': data.previous_admissions
         }])
         
         def safe_transform(encoder, val):
@@ -185,7 +226,7 @@ def predict_readmission(data: PatientData, current_user: dict = Depends(get_curr
         df['disease_encoded'] = safe_transform(le_disease, data.disease)
         df['gender_encoded'] = safe_transform(le_gender, data.gender)
         
-        X = df[['age_encoded', 'disease_encoded', 'gender_encoded', 'treatment_cost']]
+        X = df[['age_encoded', 'disease_encoded', 'gender_encoded', 'treatment_cost', 'length_of_stay', 'previous_admissions']]
         prob = rf_model.predict_proba(X)[0][1]
         prob_pct = round(prob * 100, 1)
         
