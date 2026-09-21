@@ -9,13 +9,15 @@ import { motion } from 'framer-motion';
 import clsx from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
-export function cn(...inputs: (string | undefined | null | false)[]) {
+function cn(...inputs: (string | undefined | null | false)[]) {
   return twMerge(clsx(inputs));
 }
 
 // --- Environment Config ---
 const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/$/, '');
 const WS_BASE = API_BASE.replace(/^http/, 'ws');
+
+const TREND_COLORS = ['#ef4444', '#06b6d4', '#a855f7', '#f59e0b', '#10b981', '#3b82f6', '#ec4899'];
 
 // --- API Fetcher ---
 const fetchApi = async (endpoint: string, options: RequestInit = {}) => {
@@ -148,7 +150,7 @@ const LiveStreaming = () => {
 
 
 const GrokChatbot = () => {
-  const [messages, setMessages] = useState([{ role: 'assistant', content: "Hello! I am HealthHadoop AI, powered by Groq LLaMA 3.1. I have full context of the analytics on this dashboard. What would you like to know?" }]);
+  const [messages, setMessages] = useState([{ role: 'assistant', content: "Hello! I am HealthHadoop AI, powered by Groq. I have full context of the analytics on this dashboard. What would you like to know?" }]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -197,10 +199,10 @@ const GrokChatbot = () => {
         <div className="flex items-center gap-2">
           <MessageSquare className="h-5 w-5 text-[var(--text-primary)]" />
           <h3 className="text-[var(--text-heading-sm)] font-bold tracking-tight text-[var(--text-primary)]">HealthHadoop AI Assistant</h3>
-          <span className="text-[10px] px-2 py-0.5 bg-[var(--accent-primary)]/20 text-[var(--accent-primary)] rounded-full font-semibold">Groq LLaMA 3.1</span>
+          <span className="text-[10px] px-2 py-0.5 bg-[var(--accent-primary)]/20 text-[var(--accent-primary)] rounded-full font-semibold">Groq AI</span>
         </div>
         <button
-          onClick={() => setMessages([{ role: 'assistant', content: "Hello! I am HealthHadoop AI, powered by Groq LLaMA 3.1. I have full context of the analytics on this dashboard. What would you like to know?" }])}
+          onClick={() => setMessages([{ role: 'assistant', content: "Hello! I am HealthHadoop AI, powered by Groq. I have full context of the analytics on this dashboard. What would you like to know?" }])}
           className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors px-2 py-1 rounded hover:bg-[var(--bg-secondary)]"
         >
           Clear chat
@@ -211,8 +213,8 @@ const GrokChatbot = () => {
         {messages.map((msg, idx) => (
           <div key={idx} className={cn("flex", msg.role === 'user' ? "justify-end" : "justify-start")}>
             <div className={cn(
-              "max-w-[80%] rounded-[var(--radius-sm)] px-[var(--spacing-16)] py-[var(--spacing-16)] text-[var(--text-body-sm)] border border-[var(--border-color)]",
-              msg.role === 'user' ? "bg-[var(--accent-primary)] text-white" : "bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] text-[var(--text-primary)] shadow-sm"
+              "max-w-[80%] whitespace-pre-wrap break-words rounded-[var(--radius-sm)] px-[var(--spacing-16)] py-[var(--spacing-16)] text-[var(--text-body-sm)] border border-[var(--border-color)]",
+              msg.role === 'user' ? "bg-[var(--accent-primary)] text-[var(--accent-fg)]" : "bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] text-[var(--text-primary)] shadow-sm"
             )}>
               {msg.content}
             </div>
@@ -237,7 +239,7 @@ const GrokChatbot = () => {
           placeholder="Ask about trends, anomalies, readmissions..."
           className="flex-1 bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] border border-[var(--border-color)] rounded-[var(--radius-inputs)] px-4 py-3 text-[var(--text-body-sm)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--text-primary)] transition-colors"
         />
-        <button type="submit" disabled={loading} className="bg-[var(--accent-primary)] text-white px-[20px] py-[10px] rounded-[var(--radius-buttons)] hover:opacity-90 disabled:opacity-50 transition-colors shadow-sm">
+        <button type="submit" disabled={loading} className="bg-[var(--accent-primary)] text-[var(--accent-fg)] px-[20px] py-[10px] rounded-[var(--radius-buttons)] hover:opacity-90 disabled:opacity-50 transition-colors shadow-sm">
           <Send className="h-4 w-4" />
         </button>
       </form>
@@ -276,8 +278,8 @@ function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
   
   // Login State
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('admin123');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   
   // ML Form State
@@ -293,7 +295,7 @@ function App() {
   const loadData = async () => {
     if (!token) return;
     setLoading(true);
-      const [kpis, trends, regions, readmissions, costs, demographics] = await Promise.all([
+    const [kpis, trends, regions, readmissions, costs, demographics] = await Promise.all([
         fetchApi('kpis'),
         fetchApi('disease-trends'),
         fetchApi('regional-burden'),
@@ -305,10 +307,6 @@ function App() {
       setData({ kpis, trends, regions, readmissions, costs, demographics });
     setLoading(false);
   };
-
-  useEffect(() => {
-    loadData();
-  }, []);
 
   useEffect(() => {
     if (token) {
@@ -342,6 +340,10 @@ function App() {
     }
   };
 
+  const trendKeys: string[] = Array.from(
+    new Set<string>((data.trends || []).flatMap((row: Record<string, unknown>) => Object.keys(row)))
+  ).filter(k => k !== 'year');
+
   const handleLogout = () => {
     localStorage.removeItem('token');
     setToken(null);
@@ -353,7 +355,7 @@ function App() {
     
     setIsUploading(true);
     setUploadStatus('idle');
-    setUploadMessage('Spark Cluster Processing Data...');
+    setUploadMessage('Processing dataset...');
     
     const formData = new FormData();
     formData.append('file', file);
@@ -387,7 +389,7 @@ function App() {
       }
     } catch (err) {
       setUploadStatus('error');
-      setUploadMessage('Network error communicating with Spark backend.');
+      setUploadMessage('Network error communicating with the backend.');
     }
     setIsUploading(false);
   };
@@ -444,6 +446,7 @@ function App() {
             <p className="text-[var(--text-body)] text-[var(--text-secondary)] max-w-[640px] mx-auto">
               Secure access to BDE Healthcare Analytics
             </p>
+            <p className="text-[var(--text-caption)] text-[var(--text-secondary)] mt-2">Demo account: admin / admin123</p>
           </div>
           
           <form onSubmit={handleLogin} className="space-y-[var(--spacing-24)] mt-[var(--spacing-32)]">
@@ -451,6 +454,8 @@ function App() {
               <label className="block text-[var(--text-caption)] font-medium mb-[var(--spacing-8)] text-[var(--text-secondary)] tracking-wider uppercase">Username</label>
               <input 
                 type="text" 
+                autoComplete="username"
+                required
                 value={username}
                 onChange={e => setUsername(e.target.value)}
                 className="w-full bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] border border-[var(--border-color)] rounded-[var(--radius-inputs)] p-[var(--spacing-16)] text-[var(--text-body-sm)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--text-primary)] transition-colors"
@@ -460,6 +465,8 @@ function App() {
               <label className="block text-[var(--text-caption)] font-medium mb-[var(--spacing-8)] text-[var(--text-secondary)] tracking-wider uppercase">Password</label>
               <input 
                 type="password" 
+                autoComplete="current-password"
+                required
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 className="w-full bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] border border-[var(--border-color)] rounded-[var(--radius-inputs)] p-[var(--spacing-16)] text-[var(--text-body-sm)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--text-primary)] transition-colors"
@@ -468,7 +475,7 @@ function App() {
             {loginError && <p className="text-red-500 text-[var(--text-body-sm)] font-medium">{loginError}</p>}
             <button 
               type="submit" 
-              className="w-full bg-[var(--accent-primary)] text-white rounded-[var(--radius-buttons)] font-medium px-[var(--spacing-24)] py-[12px] shadow-sm hover:opacity-90 transition-colors"
+              className="w-full bg-[var(--accent-primary)] text-[var(--accent-fg)] rounded-[var(--radius-buttons)] font-medium px-[var(--spacing-24)] py-[12px] shadow-sm hover:opacity-90 transition-colors"
             >
               Sign In
             </button>
@@ -496,15 +503,15 @@ function App() {
     <div className="min-h-screen font-sans antialiased selection:bg-[var(--accent-glow)] selection:text-[var(--text-primary)] bg-[var(--bg-secondary)]">
       <div className="relative z-10 w-full">
         {/* Top Navigation - Glassnode style */}
-        <header className="w-full bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] border-b border-[var(--border-color)] h-[64px] flex items-center px-[var(--spacing-24)] justify-between animate-in slide-in-from-top-4 duration-500 sticky top-0 z-50">
+        <header className="w-full bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] border-b border-[var(--border-color)] h-[64px] flex items-center px-4 sm:px-[var(--spacing-24)] justify-between animate-in slide-in-from-top-4 duration-500 sticky top-0 z-50">
           <div className="flex items-center gap-[var(--spacing-8)]">
             <Activity className="h-5 w-5 text-[var(--text-primary)]" />
-            <span className="text-[var(--text-subheading)] font-bold tracking-tight text-[var(--text-primary)]">glassnode</span>
-            <span className="text-[var(--text-body-sm)] text-[var(--text-secondary)] ml-2 border-l border-[var(--border-color)] pl-2">BDE Healthcare</span>
+            <span className="text-[var(--text-subheading)] font-bold tracking-tight text-[var(--text-primary)]">HealthHadoop</span>
+            <span className="hidden sm:inline text-[var(--text-body-sm)] text-[var(--text-secondary)] ml-2 border-l border-[var(--border-color)] pl-2">BDE Healthcare</span>
           </div>
           <div className="flex items-center gap-[var(--spacing-16)]">
             <button
-              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              aria-label="Toggle theme" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
               className="p-2 rounded-full hover:bg-[var(--bg-secondary)] text-[var(--text-secondary)] transition-colors"
             >
               {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
@@ -520,7 +527,7 @@ function App() {
               />
               <div className="flex items-center gap-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-medium text-[var(--text-body-sm)] px-[16px] py-[10px] rounded-[var(--radius-buttons)] hover:bg-[var(--bg-secondary)] transition-colors border border-[var(--border-color)]">
                 <Upload className="h-4 w-4" />
-                {isUploading ? 'Processing...' : 'Upload CSV'}
+                <span className="hidden sm:inline">{isUploading ? 'Processing...' : 'Upload CSV'}</span>
               </div>
             </label>
             <button
@@ -528,37 +535,37 @@ function App() {
                 localStorage.removeItem('token');
                 window.location.reload();
               }}
-              className="bg-transparent text-[var(--text-primary)] font-medium text-[var(--text-body-sm)] px-[20px] py-[10px] rounded-[var(--radius-buttons)] hover:bg-[var(--bg-secondary)] transition-colors"
+              className="bg-transparent text-[var(--text-primary)] font-medium text-[var(--text-body-sm)] px-[12px] sm:px-[20px] py-[10px] rounded-[var(--radius-buttons)] hover:bg-[var(--bg-secondary)] transition-colors"
             >
               Log out
             </button>
             <button
               onClick={() => setActiveTab('ai')}
-              className="bg-[var(--accent-primary)] text-white font-medium text-[var(--text-body-sm)] px-[20px] py-[10px] rounded-[var(--radius-buttons)] shadow-sm hover:opacity-90 transition-colors"
+              className="bg-[var(--accent-primary)] text-[var(--accent-fg)] font-medium text-[var(--text-body-sm)] px-[20px] py-[10px] rounded-[var(--radius-buttons)] shadow-sm hover:opacity-90 transition-colors"
             >
-              Launch Studio
+              <span className="hidden sm:inline">Launch </span>AI
             </button>
           </div>
         </header>
 
-      <nav className="w-full mb-[var(--section-gap)]">
+      <nav className="w-full mt-6 mb-6">
         <div className="flex items-center justify-center">
           <div className="hidden md:flex bg-[var(--bg-secondary)] p-1 rounded-[var(--radius-sm)] border border-[var(--border-color)]">
             <button 
               onClick={() => setActiveTab('batch')} 
-              className={cn("px-[20px] py-[8px] text-[var(--text-body-sm)] font-medium rounded-[var(--radius-sm)] transition-all border", activeTab === 'batch' ? "bg-[var(--accent-primary)] border-[var(--text-primary)] text-white" : "bg-transparent border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]")}
+              className={cn("px-[20px] py-[8px] text-[var(--text-body-sm)] font-medium rounded-[var(--radius-sm)] transition-all border", activeTab === 'batch' ? "bg-[var(--accent-primary)] border-[var(--text-primary)] text-[var(--accent-fg)]" : "bg-transparent border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]")}
             >
               Batch Analytics
             </button>
             <button 
               onClick={() => setActiveTab('streaming')} 
-              className={cn("px-[20px] py-[8px] text-[var(--text-body-sm)] font-medium rounded-[var(--radius-sm)] transition-all border", activeTab === 'streaming' ? "bg-[var(--accent-primary)] border-[var(--text-primary)] text-white" : "bg-transparent border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]")}
+              className={cn("px-[20px] py-[8px] text-[var(--text-body-sm)] font-medium rounded-[var(--radius-sm)] transition-all border", activeTab === 'streaming' ? "bg-[var(--accent-primary)] border-[var(--text-primary)] text-[var(--accent-fg)]" : "bg-transparent border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]")}
             >
               Live Streaming (Speed Layer)
             </button>
             <button 
               onClick={() => setActiveTab('ai')} 
-              className={cn("px-[20px] py-[8px] text-[var(--text-body-sm)] font-medium rounded-[var(--radius-sm)] transition-all border", activeTab === 'ai' ? "bg-[var(--accent-primary)] border-[var(--text-primary)] text-white" : "bg-transparent border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]")}
+              className={cn("px-[20px] py-[8px] text-[var(--text-body-sm)] font-medium rounded-[var(--radius-sm)] transition-all border", activeTab === 'ai' ? "bg-[var(--accent-primary)] border-[var(--text-primary)] text-[var(--accent-fg)]" : "bg-transparent border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]")}
             >
               AI Insights
             </button>
@@ -567,16 +574,16 @@ function App() {
       </nav>
 
       <main className="w-full pb-16">
-        <section className="w-full max-w-[var(--page-max-width)] mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-24 flex flex-col items-start md:items-center md:text-center space-y-[var(--spacing-24)]">
+        <section className="w-full max-w-[var(--page-max-width)] mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-16 flex flex-col items-start md:items-center md:text-center space-y-[var(--spacing-24)]">
           <div className="inline-flex items-center rounded-[var(--radius-sm)] border border-[var(--border-color)] bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] pl-1 pr-3 py-1 mb-4">
-            <div className="bg-[var(--accent-primary)] text-white rounded-[1px] w-6 h-6 flex items-center justify-center text-[12px] font-medium mr-2">1</div>
-            <span className="text-[12px] font-medium text-[var(--color-badge-slate)] uppercase">LAMBDA ARCHITECTURE</span>
+            <div className="bg-[var(--accent-primary)] text-[var(--accent-fg)] rounded-[1px] w-6 h-6 flex items-center justify-center text-[12px] font-medium mr-2">1</div>
+            <span className="text-[12px] font-medium text-[var(--text-secondary)] uppercase">LAMBDA ARCHITECTURE</span>
           </div>
-          <h1 className="text-[var(--text-display)] leading-[var(--leading-display)] font-bold text-[var(--text-primary)] max-w-4xl font-fraktion">
+          <h1 className="text-4xl md:text-[var(--text-display)] leading-[var(--leading-display)] font-bold text-[var(--text-primary)] max-w-4xl font-fraktion">
             Uncovering Healthcare Insights <span className="bg-[var(--accent-glow)] px-2">at Petabyte Scale</span>
           </h1>
-          <p className="text-[var(--text-heading-sm)] text-[var(--text-secondary)] max-w-[800px] leading-relaxed mx-auto font-medium">
-            A full-stack Lambda Architecture demonstrating Apache Hadoop, Hive, Spark Streaming, and Grok Generative AI to analyze and predict hospital readmissions.
+          <p className="text-lg md:text-[var(--text-heading-sm)] text-[var(--text-secondary)] max-w-[800px] leading-relaxed mx-auto font-medium">
+            A full-stack Lambda Architecture demonstrating Apache Hadoop, Hive, Spark Streaming, and Groq Generative AI to analyze and predict hospital readmissions.
           </p>
         </section>
 
@@ -591,7 +598,7 @@ function App() {
                   </div>
                   <h3 className="text-[var(--text-heading-sm)] font-bold mb-[var(--spacing-8)] text-[var(--text-primary)]">Upload Dataset to Begin</h3>
                   <p className="text-[var(--text-body)] text-[var(--text-secondary)] mb-[var(--spacing-24)]">
-                    Please upload a healthcare CSV dataset to initialize the PySpark cluster and unlock the dashboard.
+                    Please upload a healthcare CSV dataset to analyze and unlock the dashboard.
                   </p>
                   
                   <div className="relative">
@@ -604,7 +611,7 @@ function App() {
                     />
                     <button 
                       disabled={isUploading}
-                      className="bg-[var(--accent-primary)] text-white font-medium px-[24px] py-[12px] rounded-[var(--radius-buttons)] flex items-center gap-2 hover:opacity-90 transition-colors disabled:opacity-50"
+                      className="bg-[var(--accent-primary)] text-[var(--accent-fg)] font-medium px-[24px] py-[12px] rounded-[var(--radius-buttons)] flex items-center gap-2 hover:opacity-90 transition-colors disabled:opacity-50"
                     >
                       <Upload className="h-4 w-4" />
                       {isUploading ? "Uploading & Processing..." : "Select CSV File"}
@@ -630,10 +637,10 @@ function App() {
         )}
 
             {/* Mobile Tabs */}
-            <div className="flex md:hidden gap-[var(--spacing-8)] w-full overflow-x-auto mb-[var(--section-gap)] pb-2 px-4">
-                <button onClick={() => setActiveTab('batch')} className={cn("flex-1 px-4 py-2 text-[var(--text-body-sm)] font-medium rounded-[var(--radius-sm)] transition-all whitespace-nowrap border", activeTab === 'batch' ? "bg-[var(--accent-primary)] border-[var(--text-primary)] text-white" : "bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] border-[var(--border-color)] text-[var(--text-primary)]")}>Batch</button>
-                <button onClick={() => setActiveTab('streaming')} className={cn("flex-1 px-4 py-2 text-[var(--text-body-sm)] font-medium rounded-[var(--radius-sm)] transition-all whitespace-nowrap border", activeTab === 'streaming' ? "bg-[var(--accent-primary)] border-[var(--text-primary)] text-white" : "bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] border-[var(--border-color)] text-[var(--text-primary)]")}>Streaming</button>
-                <button onClick={() => setActiveTab('ai')} className={cn("flex-1 px-4 py-2 text-[var(--text-body-sm)] font-medium rounded-[var(--radius-sm)] transition-all whitespace-nowrap border", activeTab === 'ai' ? "bg-[var(--accent-primary)] border-[var(--text-primary)] text-white" : "bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] border-[var(--border-color)] text-[var(--text-primary)]")}>AI Insights</button>
+            <div className="flex md:hidden gap-[var(--spacing-8)] w-full overflow-x-auto mb-8 pb-2 px-4">
+                <button onClick={() => setActiveTab('batch')} className={cn("flex-1 px-4 py-2 text-[var(--text-body-sm)] font-medium rounded-[var(--radius-sm)] transition-all whitespace-nowrap border", activeTab === 'batch' ? "bg-[var(--accent-primary)] border-[var(--text-primary)] text-[var(--accent-fg)]" : "bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] border-[var(--border-color)] text-[var(--text-primary)]")}>Batch</button>
+                <button onClick={() => setActiveTab('streaming')} className={cn("flex-1 px-4 py-2 text-[var(--text-body-sm)] font-medium rounded-[var(--radius-sm)] transition-all whitespace-nowrap border", activeTab === 'streaming' ? "bg-[var(--accent-primary)] border-[var(--text-primary)] text-[var(--accent-fg)]" : "bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] border-[var(--border-color)] text-[var(--text-primary)]")}>Streaming</button>
+                <button onClick={() => setActiveTab('ai')} className={cn("flex-1 px-4 py-2 text-[var(--text-body-sm)] font-medium rounded-[var(--radius-sm)] transition-all whitespace-nowrap border", activeTab === 'ai' ? "bg-[var(--accent-primary)] border-[var(--text-primary)] text-[var(--accent-fg)]" : "bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] border-[var(--border-color)] text-[var(--text-primary)]")}>AI Insights</button>
             </div>
 
         {/* --- TAB: BATCH ANALYTICS --- */}
@@ -658,7 +665,7 @@ function App() {
                 { label: "Regions Analyzed", icon: Map, value: data.kpis?.regions_analyzed },
                 { label: "Top Disease Volume", icon: Users, value: data.kpis?.top_disease },
                 { label: "Avg Readmission Rate", icon: AlertTriangle, value: data.kpis?.avg_readmission_rate, color: "text-[#ff4d4d]" },
-                { label: "Total Revenue", icon: DollarSign, value: data.costs ? `$${(data.costs.total_revenue / 1000000).toFixed(1)}M` : 'N/A', color: "text-[#00f2fe]" },
+                { label: "Total Revenue", icon: DollarSign, value: data.costs ? `$${(data.costs.total_revenue / 1000000).toFixed(1)}M` : 'N/A', color: "text-[var(--accent-primary)]" },
               ].map((kpi, i) => (
                 <motion.div key={i} variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } } }}>
                   <Card className="hover:-translate-y-1 transition-transform group h-full bg-[var(--bg-glass)] border border-[var(--border-color)] shadow-[var(--shadow-glass)] relative overflow-hidden">
@@ -704,9 +711,9 @@ function App() {
                           <YAxis stroke="var(--text-secondary)" className="text-[12px]" tickLine={false} axisLine={false} />
                           <RechartsTooltip contentStyle={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)', borderRadius: '12px', color: 'var(--text-primary)', boxShadow: 'var(--shadow-neon)' }} itemStyle={{ color: 'var(--text-primary)' }} />
                           <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
-                          <Line type="monotone" dataKey="Heart Disease" stroke="#ff4d4d" strokeWidth={3} dot={false} activeDot={{ r: 6, fill: '#ff4d4d', stroke: 'var(--bg-primary)', strokeWidth: 2 }} />
-                          <Line type="monotone" dataKey="Diabetes" stroke="#00f2fe" strokeWidth={3} dot={false} activeDot={{ r: 6, fill: '#00f2fe', stroke: 'var(--bg-primary)', strokeWidth: 2 }} />
-                          <Line type="monotone" dataKey="Pneumonia" stroke="#a855f7" strokeWidth={3} dot={false} activeDot={{ r: 6, fill: '#a855f7', stroke: 'var(--bg-primary)', strokeWidth: 2 }} />
+                          {trendKeys.map((key, i) => (
+                            <Line key={key} type="monotone" dataKey={key} stroke={TREND_COLORS[i % TREND_COLORS.length]} strokeWidth={3} dot={false} activeDot={{ r: 6, fill: TREND_COLORS[i % TREND_COLORS.length], stroke: 'var(--bg-primary)', strokeWidth: 2 }} />
+                          ))}
                         </LineChart>
                       </ResponsiveContainer>
                     )}
@@ -724,10 +731,10 @@ function App() {
                   <div className="flex-1 w-full">
                     {loading ? <Skeleton className="h-full w-full" /> : (data.demographics && data.demographics.length > 0 ? (
                       <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={data.demographics} layout="vertical" margin={{ left: -20 }}>
+                        <BarChart data={data.demographics} layout="vertical" margin={{ left: 10 }}>
                           <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" className="opacity-30" horizontal={true} vertical={false} />
                           <XAxis type="number" stroke="var(--text-secondary)" className="text-[12px]" tickLine={false} axisLine={false} />
-                          <YAxis dataKey="age" type="category" stroke="var(--text-secondary)" className="text-[12px]" tickLine={false} axisLine={false} />
+                          <YAxis dataKey="age" type="category" width={56} stroke="var(--text-secondary)" className="text-[12px]" tickLine={false} axisLine={false} />
                           <RechartsTooltip cursor={{fill: 'var(--bg-secondary)', opacity: 0.5}} contentStyle={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)', borderRadius: '12px', color: 'var(--text-primary)', boxShadow: 'var(--shadow-neon)' }} />
                           <Legend iconType="circle" />
                           <Bar dataKey="Male" fill="#00f2fe" radius={[0, 4, 4, 0]} barSize={12} />
@@ -749,7 +756,7 @@ function App() {
                 <Card className="flex flex-col h-[350px] bg-[var(--bg-glass)] border border-[var(--border-color)] shadow-[var(--shadow-glass)]">
                   <div className="flex items-center gap-2 mb-6">
                     <Map className="h-5 w-5 text-[var(--accent-primary)]" />
-                    <h3 className="text-[var(--text-body)] font-semibold">Regional Disease Burden vs Readmissions</h3>
+                    <h3 className="text-[var(--text-body)] font-semibold">Regional Case Volume</h3>
                   </div>
                   <div className="flex-1 w-full">
                     {loading ? <Skeleton className="h-full w-full" /> : (
@@ -790,8 +797,8 @@ function App() {
         {activeTab === 'ai' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in fade-in duration-500 max-w-[var(--page-max-width)] mx-auto px-4 sm:px-6 lg:px-8">
             <section className="space-y-6">
-              <div className="flex items-center gap-2 border-b border-border pb-2">
-                <Target className="h-6 w-6 text-primary" />
+              <div className="flex items-center gap-2 border-b border-[var(--border-color)] pb-2">
+                <Target className="h-6 w-6 text-[var(--accent-primary)]" />
                 <h2 className="text-2xl font-semibold tracking-tight text-[var(--text-primary)]">AI Readmission Predictor</h2>
               </div>
               <Card>
@@ -817,10 +824,13 @@ function App() {
                       value={mlForm.age_band}
                       onChange={e => setMlForm({...mlForm, age_band: e.target.value})}
                     >
+                      <option>18-30</option>
+                      <option>31-40</option>
                       <option>41-50</option>
                       <option>51-60</option>
                       <option>61-70</option>
                       <option>71-80</option>
+                      <option>80+</option>
                     </select>
                   </div>
                   <div>
@@ -829,7 +839,7 @@ function App() {
                       type="number" 
                       className="w-full bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] border border-[var(--border-color)] rounded-[var(--radius-inputs)] p-[var(--spacing-16)] text-[var(--text-body-sm)] focus:outline-none focus:border-[var(--text-primary)] transition-colors text-[var(--text-primary)]"
                       value={mlForm.treatment_cost}
-                      onChange={e => setMlForm({...mlForm, treatment_cost: parseInt(e.target.value)})}
+                      onChange={e => setMlForm({...mlForm, treatment_cost: Math.max(0, Number(e.target.value) || 0)})}
                     />
                   </div>
                   
@@ -858,7 +868,7 @@ function App() {
     <button 
                     type="submit" 
                     disabled={predicting}
-                    className="w-full bg-[var(--accent-primary)] text-white rounded-[var(--radius-buttons)] font-medium px-[var(--spacing-24)] py-[12px] mt-[var(--spacing-24)] hover:opacity-90 transition-colors disabled:opacity-50 shadow-sm"
+                    className="w-full bg-[var(--accent-primary)] text-[var(--accent-fg)] rounded-[var(--radius-buttons)] font-medium px-[var(--spacing-24)] py-[12px] mt-[var(--spacing-24)] hover:opacity-90 transition-colors disabled:opacity-50 shadow-sm"
                   >
                     {predicting ? "Running Model..." : "Predict Readmission Risk"}
                   </button>
@@ -883,7 +893,7 @@ function App() {
             </section>
 
             <section className="space-y-6 flex flex-col">
-              <div className="flex items-center gap-2 border-b border-border pb-2">
+              <div className="flex items-center gap-2 border-b border-[var(--border-color)] pb-2">
                 <Cpu className="h-6 w-6 text-[var(--accent-primary)]" />
                 <h2 className="text-2xl font-semibold tracking-tight text-[var(--text-primary)]">Chat with your Data</h2>
               </div>
@@ -893,8 +903,8 @@ function App() {
         )}
       </main>
       
-      <footer className="border-t border-border mt-12 py-8 text-center text-sm text-muted-foreground">
-        <p>Built for Big Data Essentials Capstone. Powered by React, FastAPI, Spark ML, and Grok AI.</p>
+      <footer className="border-t border-[var(--border-color)] mt-12 py-8 text-center text-sm text-[var(--text-secondary)]">
+        <p>Built for Big Data Essentials Capstone. Powered by React, FastAPI, scikit-learn, and Groq AI.</p>
       </footer>
       </div>
     </div>

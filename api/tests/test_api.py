@@ -1,32 +1,64 @@
+import pytest
 from fastapi.testclient import TestClient
 from main import app
 
-client = TestClient(app)
 
-def test_api_health():
-    """Ensure the FastAPI app starts and documentation is available."""
-    response = client.get("/openapi.json")
-    assert response.status_code == 200
+@pytest.fixture(scope="module")
+def client():
+    # Context manager runs the startup event that loads the default dataset.
+    with TestClient(app) as c:
+        yield c
 
-def test_get_kpis():
-    """Ensure the KPIs endpoint returns data successfully."""
-    response = client.get("/api/kpis")
-    assert response.status_code == 200
-    data = response.json()
+
+@pytest.fixture(scope="module")
+def auth(client):
+    res = client.post("/api/token", data={"username": "admin", "password": "admin123"})
+    assert res.status_code == 200
+    return {"Authorization": f"Bearer {res.json()['access_token']}"}
+
+
+def test_api_health(client):
+    assert client.get("/openapi.json").status_code == 200
+
+
+def test_endpoints_require_auth(client):
+    assert client.get("/api/kpis").status_code == 401
+    assert client.post("/api/upload").status_code == 401
+
+
+def test_bad_login(client):
+    res = client.post("/api/token", data={"username": "admin", "password": "wrong"})
+    assert res.status_code == 401
+
+
+def test_get_kpis(client, auth):
+    res = client.get("/api/kpis", headers=auth)
+    assert res.status_code == 200
+    data = res.json()
     assert "total_records_processed" in data
     assert "top_disease" in data
 
-def test_ml_prediction_valid_input():
-    """Ensure the Scikit-Learn Prediction endpoint returns a valid risk score."""
+
+def test_me(client, auth):
+    assert client.get("/api/me", headers=auth).json()["username"] == "admin"
+
+
+def test_ml_prediction_valid_input(client, auth):
     payload = {
         "age_band": "61-70",
         "disease": "Heart Disease",
         "treatment_cost": 5000.0,
-        "gender": "M"
+        "gender": "Male",
+        "length_of_stay": 5,
+        "previous_admissions": 1,
     }
-    response = client.post("/api/predict", json=payload)
-    assert response.status_code == 200
-    data = response.json()
-    assert "prediction" in data
+    res = client.post("/api/predict", json=payload, headers=auth)
+    assert res.status_code == 200
+    data = res.json()
+    assert data["prediction"] in ["High Risk", "Low Risk", "Error"]
     assert "probability" in data
-    assert data["prediction"] in ["High Risk", "Low Risk", "Error"] # Error allowed if models not generated during CI, but endpoint must not crash
+
+
+def test_upload_rejects_non_csv(client, auth):
+    res = client.post("/api/upload", files={"file": ("x.txt", b"a,b")}, headers=auth)
+    assert res.status_code == 400

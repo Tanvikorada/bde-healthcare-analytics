@@ -21,3 +21,6 @@ backend/data/dataset/*.csv
 
 # Logs
 *.log
+
+# Local DB
+*.db

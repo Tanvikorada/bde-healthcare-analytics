@@ -5,13 +5,15 @@ import random
 import asyncio
 from dotenv import load_dotenv
 import pandas as pd
-from fastapi import FastAPI, UploadFile, File, HTTPException, WebSocket
+from fastapi import FastAPI, UploadFile, File, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from openai import AsyncOpenAI
 import joblib
 from fastapi.security import OAuth2PasswordRequestForm
-from auth import create_access_token, verify_password, get_user, get_current_user, ACCESS_TOKEN_EXPIRE_MINUTES, timedelta, Depends
+from datetime import timedelta
+from fastapi import Depends
+from auth import create_access_token, verify_password, get_user, get_current_user, ACCESS_TOKEN_EXPIRE_MINUTES
 
 # Add parent directory to path so we can import backend
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -27,8 +29,8 @@ app.state.dataset = {}
 # Allow frontend to access API
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=[o.strip() for o in os.getenv("CORS_ORIGINS", "*").split(",")],
+    allow_credentials=False,  # auth uses Bearer tokens, not cookies
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -46,9 +48,8 @@ except Exception as e:
     print(f"Warning: ML Models not found. Ensure train_model.py was run. Error: {e}")
 
 # Initialize OpenAI-compatible client for Groq
-os.environ["GROK_API_KEY"] = "gsk_WMbe9hd7LAU055J1kt" + "t3WGdyb3FYA32YMrNYHKiZHI6d93rai3ze"
 client = AsyncOpenAI(
-    api_key=os.getenv("GROK_API_KEY"),
+    api_key=os.getenv("GROK_API_KEY") or "missing-key",
     base_url="https://api.groq.com/openai/v1",
 )
 
@@ -90,19 +91,21 @@ Base.metadata.create_all(bind=engine)
 
 def seed_admin_user():
     db = next(get_db())
-    admin_user = db.query(models.User).filter(models.User.username == "admin").first()
-    if not admin_user:
-        hashed_pw = get_password_hash("admin123")
-        new_admin = models.User(username="admin", full_name="Healthcare Administrator", hashed_password=hashed_pw)
-        db.add(new_admin)
-        db.commit()
+    try:
+        admin_user = db.query(models.User).filter(models.User.username == "admin").first()
+        if not admin_user:
+            hashed_pw = get_password_hash(os.getenv("ADMIN_PASSWORD", "admin123"))
+            db.add(models.User(username="admin", full_name="Healthcare Administrator", hashed_password=hashed_pw))
+            db.commit()
+    finally:
+        db.close()
 
 seed_admin_user()
 
 class UserCreate(BaseModel):
-    username: str
-    password: str
-    full_name: str
+    username: str = Field(min_length=3, max_length=50)
+    password: str = Field(min_length=6, max_length=72)
+    full_name: str = Field(min_length=1, max_length=100)
 
 # --- AUTH ---
 @app.post("/api/register")
@@ -135,12 +138,12 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
 
 @app.get("/api/me")
 async def read_users_me(current_user: dict = Depends(get_current_user)):
-    return {"username": current_user["username"], "full_name": current_user["full_name"]}
+    return current_user
 
 # --- DATA UPLOAD (IN-MEMORY) ---
 @app.post("/api/upload")
-async def upload_dataset(file: UploadFile = File(...)):
-    if not file.filename.endswith('.csv'):
+async def upload_dataset(file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
+    if not (file.filename or "").lower().endswith('.csv'):
         raise HTTPException(status_code=400, detail="Only CSV files are allowed")
         
     try:
@@ -148,21 +151,9 @@ async def upload_dataset(file: UploadFile = File(...)):
         app.state.dataset = process_dataframe(df)
         return {"message": "File processed successfully", "processed_results": app.state.dataset}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Data Processing Failed: {str(e)}")
+        raise HTTPException(status_code=422, detail=f"Data Processing Failed: {str(e)}")
 
 # --- DATA ENDPOINTS ---
-@app.get("/api/debug")
-def debug_filesystem():
-    import os
-    return {
-        "cwd": os.getcwd(),
-        "app_files": os.listdir("/app") if os.path.exists("/app") else "No /app",
-        "api_files": os.listdir("/app/api") if os.path.exists("/app/api") else "No /app/api",
-        "parent_files": os.listdir("..") if os.path.exists("..") else "No parent",
-        "dataset_keys": list(app.state.dataset.keys()) if hasattr(app.state, "dataset") else None,
-        "test_csv_exists": os.path.exists("../test.csv") or os.path.exists("/app/test.csv")
-    }
-
 def get_state_data(key: str):
     data = app.state.dataset.get(key)
     if data is None:
@@ -197,10 +188,10 @@ def get_costs(current_user: dict = Depends(get_current_user)):
 class PatientData(BaseModel):
     age_band: str
     disease: str
-    treatment_cost: float
+    treatment_cost: float = Field(ge=0)
     gender: str
-    length_of_stay: int
-    previous_admissions: int
+    length_of_stay: int = Field(default=3, ge=0, le=365)
+    previous_admissions: int = Field(default=0, ge=0, le=100)
 
 @app.post("/api/predict")
 def predict_readmission(data: PatientData, current_user: dict = Depends(get_current_user)):
@@ -264,6 +255,8 @@ async def stream_vitals(websocket: WebSocket):
             await websocket.send_json(vital_data)
             await asyncio.sleep(1.5)
             
+    except WebSocketDisconnect:
+        print("Streaming client disconnected")
     except Exception as e:
         print(f"Streaming disconnected: {e}")
 
@@ -275,6 +268,8 @@ class ChatRequest(BaseModel):
 async def ask_grok(request: ChatRequest, current_user: dict = Depends(get_current_user)):
     kpis = app.state.dataset.get("kpis", {})
     trends = app.state.dataset.get("trends", [])
+    if not os.getenv("GROK_API_KEY"):
+        return {"reply": "AI assistant is not configured. Set GROK_API_KEY in api/.env."}
     
     system_prompt = f"""
     You are a highly intelligent Data Engineering Assistant named 'HealthHadoop AI'. 

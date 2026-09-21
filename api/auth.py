@@ -1,9 +1,9 @@
-from datetime import datetime, timedelta
-from typing import Optional
+from datetime import datetime, timedelta, timezone
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 import os
+import bcrypt
 
 # --- Security Config ---
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "super-secret-key-for-portfolio")
@@ -12,10 +12,12 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/token")
 
-import bcrypt
 
 def verify_password(plain_password, hashed_password):
-    return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+    try:
+        return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+    except ValueError:
+        return False
 
 def get_password_hash(password):
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
@@ -26,19 +28,12 @@ def get_user(db, username: str):
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None):
     to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
+    expire = datetime.now(timezone.utc) + (expires_delta or timedelta(minutes=15))
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 async def get_current_user(token: str = Depends(oauth2_scheme)):
-    # We delay DB dependency injection to avoid circular imports here, 
-    # but we can fetch the user if we need. Since this is a simple app,
-    # verifying the token signature is usually enough. Let's just return
-    # the username for simplicity unless we want to query the DB.
+    """Validate the JWT and confirm the user still exists."""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -51,5 +46,13 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
             raise credentials_exception
     except JWTError:
         raise credentials_exception
-    
-    return {"username": username, "full_name": "Healthcare User"}
+
+    from database import SessionLocal
+    db = SessionLocal()
+    try:
+        user = get_user(db, username)
+        if user is None:
+            raise credentials_exception
+        return {"username": user.username, "full_name": user.full_name}
+    finally:
+        db.close()
