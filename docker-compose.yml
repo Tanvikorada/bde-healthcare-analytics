@@ -50,17 +50,30 @@ services:
     depends_on:
       - kafka
       - vitals-producer
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+    restart: unless-stopped
 
   # The Presentation Layer: React/Nginx Frontend
   frontend:
     build:
       context: .
       dockerfile: frontend.Dockerfile
+      args:
+        # Talks to the api container directly since both run on the host network.
+        # Override with a real public backend URL when deploying frontend and backend separately.
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
     container_name: bde-frontend
     ports:
       - "80:80"
     depends_on:
-      - api
+      api:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   data-volume:

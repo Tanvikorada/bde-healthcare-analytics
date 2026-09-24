@@ -43,6 +43,34 @@ def test_me(client, auth):
     assert client.get("/api/me", headers=auth).json()["username"] == "admin"
 
 
+def test_health(client):
+    body = client.get("/health").json()
+    assert body["status"] == "ok"
+
+
+def test_register_and_login_new_user(client):
+    res = client.post("/api/register", json={
+        "username": "newpatientuser",
+        "password": "hunter22",
+        "full_name": "New Test User",
+    })
+    assert res.status_code == 200
+
+    # Duplicate registration is rejected.
+    dup = client.post("/api/register", json={
+        "username": "newpatientuser",
+        "password": "hunter22",
+        "full_name": "New Test User",
+    })
+    assert dup.status_code == 400
+
+    login = client.post("/api/token", data={"username": "newpatientuser", "password": "hunter22"})
+    assert login.status_code == 200
+    token = login.json()["access_token"]
+    me = client.get("/api/me", headers={"Authorization": f"Bearer {token}"})
+    assert me.json()["username"] == "newpatientuser"
+
+
 def test_ml_prediction_valid_input(client, auth):
     payload = {
         "age_band": "61-70",

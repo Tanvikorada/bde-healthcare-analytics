@@ -277,10 +277,13 @@ function App() {
   });
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
   
-  // Login State
+  // Login / Register State
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
   const [loginError, setLoginError] = useState('');
+  const [registering, setRegistering] = useState(false);
   
   // ML Form State
   const [mlForm, setMlForm] = useState({ age_band: '51-60', disease: 'Heart Disease', treatment_cost: 15000, gender: 'Male', length_of_stay: 5, previous_admissions: 1 });
@@ -338,6 +341,28 @@ function App() {
     } catch (err) {
       setLoginError('Invalid username or password');
     }
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError('');
+    setRegistering(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password, full_name: fullName || username }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(body.detail || 'Registration failed');
+      }
+      // Auto-login right after successful registration.
+      await handleLogin(e);
+    } catch (err: any) {
+      setLoginError(err.message || 'Registration failed');
+    }
+    setRegistering(false);
   };
 
   const trendKeys: string[] = Array.from(
@@ -441,21 +466,37 @@ function App() {
               <Activity className="h-6 w-6" />
             </div>
             <h1 className="text-[var(--text-heading)] leading-[var(--leading-heading)] font-bold tracking-tight text-[var(--text-primary)] mb-[var(--spacing-16)] font-fraktion">
-              Login
+              {authMode === 'login' ? 'Login' : 'Create Account'}
             </h1>
             <p className="text-[var(--text-body)] text-[var(--text-secondary)] max-w-[640px] mx-auto">
               Secure access to BDE Healthcare Analytics
             </p>
-            <p className="text-[var(--text-caption)] text-[var(--text-secondary)] mt-2">Demo account: admin / admin123</p>
+            {authMode === 'login' && (
+              <p className="text-[var(--text-caption)] text-[var(--text-secondary)] mt-2">Demo account: admin / admin123</p>
+            )}
           </div>
-          
-          <form onSubmit={handleLogin} className="space-y-[var(--spacing-24)] mt-[var(--spacing-32)]">
+
+          <form onSubmit={authMode === 'login' ? handleLogin : handleRegister} className="space-y-[var(--spacing-24)] mt-[var(--spacing-32)]">
+            {authMode === 'register' && (
+              <div>
+                <label className="block text-[var(--text-caption)] font-medium mb-[var(--spacing-8)] text-[var(--text-secondary)] tracking-wider uppercase">Full Name</label>
+                <input
+                  type="text"
+                  autoComplete="name"
+                  required
+                  value={fullName}
+                  onChange={e => setFullName(e.target.value)}
+                  className="w-full bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] border border-[var(--border-color)] rounded-[var(--radius-inputs)] p-[var(--spacing-16)] text-[var(--text-body-sm)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--text-primary)] transition-colors"
+                />
+              </div>
+            )}
             <div>
               <label className="block text-[var(--text-caption)] font-medium mb-[var(--spacing-8)] text-[var(--text-secondary)] tracking-wider uppercase">Username</label>
-              <input 
-                type="text" 
+              <input
+                type="text"
                 autoComplete="username"
                 required
+                minLength={3}
                 value={username}
                 onChange={e => setUsername(e.target.value)}
                 className="w-full bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] border border-[var(--border-color)] rounded-[var(--radius-inputs)] p-[var(--spacing-16)] text-[var(--text-body-sm)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--text-primary)] transition-colors"
@@ -463,23 +504,32 @@ function App() {
             </div>
             <div>
               <label className="block text-[var(--text-caption)] font-medium mb-[var(--spacing-8)] text-[var(--text-secondary)] tracking-wider uppercase">Password</label>
-              <input 
-                type="password" 
-                autoComplete="current-password"
+              <input
+                type="password"
+                autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
                 required
+                minLength={6}
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 className="w-full bg-[var(--bg-glass)] backdrop-blur-md shadow-[var(--shadow-glass)] border border-[var(--border-color)] rounded-[var(--radius-inputs)] p-[var(--spacing-16)] text-[var(--text-body-sm)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--text-primary)] transition-colors"
               />
             </div>
             {loginError && <p className="text-red-500 text-[var(--text-body-sm)] font-medium">{loginError}</p>}
-            <button 
-              type="submit" 
-              className="w-full bg-[var(--accent-primary)] text-[var(--accent-fg)] rounded-[var(--radius-buttons)] font-medium px-[var(--spacing-24)] py-[12px] shadow-sm hover:opacity-90 transition-colors"
+            <button
+              type="submit"
+              disabled={registering}
+              className="w-full bg-[var(--accent-primary)] text-[var(--accent-fg)] rounded-[var(--radius-buttons)] font-medium px-[var(--spacing-24)] py-[12px] shadow-sm hover:opacity-90 disabled:opacity-50 transition-colors"
             >
-              Sign In
+              {authMode === 'login' ? 'Sign In' : (registering ? 'Creating Account...' : 'Create Account')}
             </button>
           </form>
+          <button
+            type="button"
+            onClick={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setLoginError(''); }}
+            className="w-full text-center text-[var(--text-body-sm)] text-[var(--accent-primary)] hover:opacity-80 transition-colors font-medium"
+          >
+            {authMode === 'login' ? "Don't have an account? Create one" : 'Already have an account? Sign in'}
+          </button>
           <div className="text-center text-[var(--text-caption)] text-[var(--text-secondary)] mt-[var(--spacing-24)]">
             BDE Healthcare Analytics — Capstone Project
           </div>

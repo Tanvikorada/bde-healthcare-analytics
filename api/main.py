@@ -3,6 +3,7 @@ import os
 import json
 import random
 import asyncio
+from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 import pandas as pd
 from fastapi import FastAPI, UploadFile, File, HTTPException, WebSocket, WebSocketDisconnect
@@ -21,7 +22,56 @@ from backend.pandas_processor import process_dataframe
 
 load_dotenv()
 
-app = FastAPI(title="Healthcare Data Analytics API")
+# Load ML Models if they exist
+ML_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../backend/ml"))
+try:
+    rf_model = joblib.load(os.path.join(ML_DIR, "rf_model.pkl"))
+    le_age = joblib.load(os.path.join(ML_DIR, "le_age.pkl"))
+    le_disease = joblib.load(os.path.join(ML_DIR, "le_disease.pkl"))
+    le_gender = joblib.load(os.path.join(ML_DIR, "le_gender.pkl"))
+    print("Real ML Models loaded successfully.")
+except Exception as e:
+    rf_model = None
+    print(f"Warning: ML Models not found. Run `python backend/ml/train_model.py` first. Error: {e}")
+
+# Initialize OpenAI-compatible client for Groq
+client = AsyncOpenAI(
+    api_key=os.getenv("GROK_API_KEY") or "missing-key",
+    base_url="https://api.groq.com/openai/v1",
+)
+
+
+def _load_default_dataset():
+    """Load the default dataset into memory on startup so the dashboard is never empty."""
+    # Try several path options to handle both local dev and Docker environments
+    candidates = [
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "test.csv")),     # inside api/
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "../test.csv")),  # Docker root /app/test.csv
+        "/app/api/test.csv",                                                        # absolute api path
+        "/app/test.csv",                                                            # explicit docker path
+        "test.csv",                                                                 # cwd fallback
+    ]
+
+    for path in candidates:
+        if os.path.exists(path):
+            try:
+                df = pd.read_csv(path)
+                app.state.dataset = process_dataframe(df)
+                print(f"Loaded default dataset from: {path} ({len(df)} rows)")
+                return
+            except Exception as e:
+                print(f"Failed to load {path}: {e}")
+
+    print(f"WARNING: No default dataset found. Tried: {candidates}")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    _load_default_dataset()
+    yield
+
+
+app = FastAPI(title="Healthcare Data Analytics API", lifespan=lifespan)
 
 # --- GLOBAL IN-MEMORY STATE ---
 app.state.dataset = {}
@@ -34,52 +84,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Load ML Models if they exist
-ML_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../backend/ml"))
-try:
-    rf_model = joblib.load(os.path.join(ML_DIR, "rf_model.pkl"))
-    le_age = joblib.load(os.path.join(ML_DIR, "le_age.pkl"))
-    le_disease = joblib.load(os.path.join(ML_DIR, "le_disease.pkl"))
-    le_gender = joblib.load(os.path.join(ML_DIR, "le_gender.pkl"))
-    print("Real ML Models loaded successfully.")
-except Exception as e:
-    rf_model = None
-    print(f"Warning: ML Models not found. Ensure train_model.py was run. Error: {e}")
-
-# Initialize OpenAI-compatible client for Groq
-client = AsyncOpenAI(
-    api_key=os.getenv("GROK_API_KEY") or "missing-key",
-    base_url="https://api.groq.com/openai/v1",
-)
-
-# --- STARTUP EVENT ---
-@app.on_event("startup")
-async def load_initial_data():
-    """Load default dataset into memory on startup so dashboard is never empty"""
-    # Try several path options to handle both local dev and Docker environments
-    candidates = [
-        os.path.abspath(os.path.join(os.path.dirname(__file__), "test.csv")),     # inside api/
-        os.path.abspath(os.path.join(os.path.dirname(__file__), "../test.csv")),  # Docker root /app/test.csv
-        "/app/api/test.csv",                                                        # absolute api path
-        "/app/test.csv",                                                            # explicit docker path
-        "test.csv",                                                                 # cwd fallback
-    ]
-    
-    loaded = False
-    for path in candidates:
-        if os.path.exists(path):
-            try:
-                df = pd.read_csv(path)
-                app.state.dataset = process_dataframe(df)
-                print(f"Loaded default dataset from: {path} ({len(df)} rows)")
-                loaded = True
-                break
-            except Exception as e:
-                print(f"Failed to load {path}: {e}")
-    
-    if not loaded:
-        print(f"WARNING: No default dataset found. Tried: {candidates}")
 
 from sqlalchemy.orm import Session
 from database import engine, Base, get_db
@@ -152,6 +156,15 @@ async def upload_dataset(file: UploadFile = File(...), current_user: dict = Depe
         return {"message": "File processed successfully", "processed_results": app.state.dataset}
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Data Processing Failed: {str(e)}")
+
+@app.get("/health")
+def health_check():
+    """Liveness/readiness probe for hosting platforms and Docker healthchecks."""
+    return {
+        "status": "ok",
+        "model_loaded": rf_model is not None,
+        "dataset_loaded": bool(app.state.dataset),
+    }
 
 # --- DATA ENDPOINTS ---
 def get_state_data(key: str):

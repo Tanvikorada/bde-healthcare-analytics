@@ -1,11 +1,19 @@
+"""
+Live smoke test against a deployed HealthHadoop backend.
+Usage:
+    BASE_URL=https://your-backend.example.com ADMIN_PASSWORD=... python scripts/smoke-test/smoke_test.py
+Defaults to the project's Render deployment and the default demo admin password.
+"""
+import os
 import requests
 import asyncio
 import websockets
 import json
 import time
 
-BASE_URL = "https://bde-healthcare-analytics.onrender.com"
-WS_URL = "wss://bde-healthcare-analytics.onrender.com/api/stream/vitals"
+BASE_URL = os.getenv("BASE_URL", "https://bde-healthcare-analytics.onrender.com")
+WS_URL = BASE_URL.replace("https://", "wss://").replace("http://", "ws://") + "/api/stream/vitals"
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")
 
 results = []
 
@@ -21,12 +29,12 @@ def test_login():
     log("AUTH", "Wrong password rejected", "PASS" if r.status_code == 401 else "FAIL", f"Status {r.status_code}")
     
     # Right password
-    r = requests.post(BASE_URL + "/api/token", data={"username": "admin", "password": "admin123"})
+    r = requests.post(BASE_URL + "/api/token", data={"username": "admin", "password": ADMIN_PASSWORD})
     if r.status_code == 200:
-        log("AUTH", "Login with admin123", "PASS", "Token received")
+        log("AUTH", "Login with admin credentials", "PASS", "Token received")
         return r.json()["access_token"]
     else:
-        log("AUTH", "Login with admin123", "FAIL", r.text)
+        log("AUTH", "Login with admin credentials", "FAIL", r.text)
         return None
 
 def test_data_endpoints(token):
